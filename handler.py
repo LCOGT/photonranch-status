@@ -76,12 +76,16 @@ def _send_to_connection(connection_id, data, wss_url):
         Data=dataToSend
     )
 
-def _send_to_all_connections(data):
+def _send_to_subscribers(site, data):
 
     # Get all current connections
     table = dynamodb.Table(STATUS_SUBSCRIBERS)
-    response = table.scan(ProjectionExpression="ConnectionID")
+    response = table.scan(
+        ProjectionExpression="ConnectionID, site",
+        FilterExpression=Key('site').eq(site)
+    )
     items = response.get("Items", [])
+    print(f"Subscribers: {items}")
     connections = [x["ConnectionID"] for x in items if "ConnectionID" in x]
 
     # Send the message data to all connections
@@ -120,17 +124,45 @@ def streamHandler(event, context):
 
         print(json.dumps(response, indent=2, cls=DecimalEncoder))
         #_send_to_all_connections(data)
-        _send_to_all_connections(response.get('Item', []))
+        #_send_to_all_connections(response.get('Item', []))
+        _send_to_subscribers(pk, response.get('Item', []))
 
     return _get_response(200, "stream has activated this function")
+
+#=========================================#
+#=======       Core Methods       ========#
+#=========================================#
+
+def postStatus(site, statusType, status):
+    ''' 
+    {'statusType': 'devicesStatus', 'status': {...}}
+    '''
+    table = dynamodb.Table(STATUS_TABLE)
+
+    dynamodb_entry = {
+        "site": site,    
+        "statusType": statusType,
+        "status": status,
+        "server_timestamp_ms": int(time.time() * 1000),
+    }
+
+    table_response = table.put_item(Item=dynamodb_entry)
+    return table_response
+
+def getStatus(site, statusType):
+    table = dynamodb.Table(STATUS_TABLE)
+    table_response = table.get_item(Key={"site": site, "statusType": statusType})
+    return table_response
+
 
 #=========================================#
 #=======       API Endpoints      ========#
 #=========================================#
 
-def postStatus(event, context):
-    ''' Example request body:
-    {'statusType': 'devicesStatus', 'status': {...}}
+def postStatusHttp(event, context):
+    ''' 
+    Update a site's status with a regular http request.
+    Example request body: {'statusType': 'devicesStatus', 'status': {...}}
     '''
     body = _get_body(event)
     table = dynamodb.Table(STATUS_TABLE)
@@ -150,25 +182,37 @@ def postStatus(event, context):
                     "Access-Control-Allow-Credentials": "true",
                 },
             }
+    
+    response = postStatus(site, body['statusType'], body['status'])
+    return _get_response(200, response)
 
-    dynamodb_entry = {
-        "site": site,    
-        "statusType": body['statusType'],                
-        "status": body['status'],
-        "timestamp": int(time.time() * 1000),
-    }
+def postStatusWs(event, context):
+    '''
+    Update a site's status from a websocket connection. 
+    NOTE: still need to authenticate the connection as a valid site. 
+    '''
+    body = _get_body(event)
+    try:
+        site = body.get('site')
+        statusType = body.get('statusType')
+        status = body.get('status')
+    except:
+        return _get_response(400, 'Must include keys: site, statusType, status.')
+    response = postStatus(site, body['statusType'], body['status'])
+    return _get_response(200, response)
 
-    table_response = table.put_item(Item=dynamodb_entry)
-    return _get_response(200, table_response)
 
 def getSiteDeviceStatus(event, context):
-    body = _get_body(event)
     table = dynamodb.Table(STATUS_TABLE)
     site = event['pathParameters']['site']
-    table_response = table.get_item(Key={"site": site, "statusType": "deviceStatus"})
-    return _get_response(200, table_reponse)
+    table_response = getStatus(site, "deviceStatus")
+    return _get_response(200, table_response)
 
 def updateSubscriberSite(event, context):
+    '''
+    Change the site associated with a connectionId. This connection will only
+    be sent updates for that site. 
+    '''
     connectionId = event['requestContext'].get('connectionId')
     body = _get_body(event)
 

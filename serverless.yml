@@ -152,7 +152,7 @@ functions:
     handler: authorizer.auth
     cors: true
   postStatus:
-    handler: handler.postStatus
+    handler: handler.postStatusHttp
     events:
       - http:
           path: /{site}/status
@@ -192,7 +192,7 @@ functions:
               - Access-Control-Allow-Origin
               - Access-Control-Allow-Credentials
   
-  conectHandler:
+  connectionHandler:
     handler: handler.connection_manager
     events: 
       - websocket: 
@@ -205,6 +205,12 @@ functions:
     events:
       - websocket:
           route: updateSubscriberSite
+  
+  postStatusWs:
+    handler: handler.postStatusWs
+    events:
+      - websocket:
+          route: postStatus
 
   streamFunction:
     handler: handler.streamHandler
