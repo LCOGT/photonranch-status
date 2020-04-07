@@ -69,12 +69,16 @@ def connection_manager(event, context):
 def _send_to_connection(connection_id, data, wss_url):
     gatewayapi = boto3.client("apigatewaymanagementapi", endpoint_url=wss_url)
     dataToSend = json.dumps(data, cls=DecimalEncoder).encode('utf-8')
-    print(f"dataToSend:")
-    print(json.dumps(json.loads(dataToSend), indent=2))
-    return gatewayapi.post_to_connection(
-        ConnectionId=connection_id,
-        Data=dataToSend
-    )
+    print(json.loads(dataToSend))
+    try: 
+        posted = gatewayapi.post_to_connection(
+            ConnectionId=connection_id,
+            Data=dataToSend
+        )
+        return posted
+    except Exception as e:
+        print(f"Could not send to connection {connection_id}")
+        print(e)
 
 def _send_to_subscribers(site, data):
 
@@ -92,13 +96,17 @@ def _send_to_subscribers(site, data):
     logger.debug("Broadcasting message: {}".format(data))
     #dataToSend = {"messages": [data]}
     for connectionID in connections:
-        connectionResponse = _send_to_connection(connectionID, data, os.getenv('WSS_URL'))
+        try:
+            connectionResponse = _send_to_connection(connectionID, data, os.getenv('WSS_URL'))
+        except:
+            continue
         #print('connection response: ')
         #print(json.dumps(connectionResponse))
 
 
 def streamHandler(event, context):
     table = dynamodb.Table(STATUS_TABLE)
+    print(f"size of stream event: {len(event['Records'])}")
     print(json.dumps(event))
     #data = event['Records'][0]['dynamodb']['NewImage']
     records = event.get('Records', [])
@@ -122,10 +130,13 @@ def streamHandler(event, context):
         # continuously retrying a bad event (eg. an event that doesn't exist)
         if response.get('Item', 'not here') == 'not here': context.succeed()
 
-        print(json.dumps(response, indent=2, cls=DecimalEncoder))
+        print(response)
         #_send_to_all_connections(data)
         #_send_to_all_connections(response.get('Item', []))
-        _send_to_subscribers(pk, response.get('Item', []))
+        try:
+            _send_to_subscribers(pk, response.get('Item', []))
+        except:
+            continue
 
     return _get_response(200, "stream has activated this function")
 
