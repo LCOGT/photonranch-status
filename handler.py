@@ -19,14 +19,20 @@ TODO:
 
 """
 
-STATUS_TABLE = os.getenv('STATUS_TABLE')
-STATUS_SUBSCRIBERS = os.getenv('STATUS_CONNECTION_TABLE')
-WSS_URL = os.getenv('WSS_URL')
-
-
 logger = logging.getLogger("handler_logger")
 logger.setLevel(logging.DEBUG)
 dynamodb = boto3.resource('dynamodb')
+
+
+try:
+    status_table = dynamodb.Table(os.getenv('STATUS_TABLE'))
+    subscribers_table = dynamodb.Table(os.getenv('STATUS_CONNECTION_TABLE'))
+    WSS_URL = os.getenv('WSS_URL')
+except Exception as e:
+    print(e)
+
+
+
 
 def connection_manager(event, context):
     """
@@ -46,20 +52,18 @@ def connection_manager(event, context):
             return _get_response(400, "No site specified")
 
         # Add connectionID to the database
-        table = dynamodb.Table(STATUS_SUBSCRIBERS)
         subscriber = {
             "ConnectionID": connectionID,
             "site": site,
         }
-        table.put_item(Item=subscriber)
+        subscribers_table.put_item(Item=subscriber)
         return _get_response(200, "Connect successful.")
 
     elif event["requestContext"]["eventType"] in ("DISCONNECT", "CLOSE"):
         logger.info("Disconnect requested")
         
         # Remove the connectionID from the database
-        table = dynamodb.Table(STATUS_SUBSCRIBERS)
-        table.delete_item(Key={"ConnectionID": connectionID}) 
+        subscribers_table.delete_item(Key={"ConnectionID": connectionID}) 
         return _get_response(200, "Disconnect successful.")
 
     else:
@@ -83,8 +87,7 @@ def _send_to_connection(connection_id, data, wss_url):
 def _send_to_subscribers(site, data):
 
     # Get all current connections
-    table = dynamodb.Table(STATUS_SUBSCRIBERS)
-    response = table.scan(
+    response = subscribers_table.scan(
         ProjectionExpression="ConnectionID, site",
         FilterExpression=Key('site').eq(site)
     )
@@ -105,7 +108,6 @@ def _send_to_subscribers(site, data):
 
 
 def streamHandler(event, context):
-    table = dynamodb.Table(STATUS_TABLE)
     print(f"size of stream event: {len(event['Records'])}")
     print(json.dumps(event))
     #data = event['Records'][0]['dynamodb']['NewImage']
@@ -117,7 +119,7 @@ def streamHandler(event, context):
     
         print(pk)
         print(sk)
-        response = table.get_item(
+        response = status_table.get_item(
             Key={
                 "site": pk,
                 "statusType": sk
@@ -148,7 +150,6 @@ def postStatus(site, statusType, status):
     ''' 
     {'statusType': 'devicesStatus', 'status': {...}}
     '''
-    table = dynamodb.Table(STATUS_TABLE)
 
     dynamodb_entry = {
         "site": site,    
@@ -157,12 +158,11 @@ def postStatus(site, statusType, status):
         "server_timestamp_ms": int(time.time() * 1000),
     }
 
-    table_response = table.put_item(Item=dynamodb_entry)
+    table_response = status_table.put_item(Item=dynamodb_entry)
     return table_response
 
 def getStatus(site, statusType):
-    table = dynamodb.Table(STATUS_TABLE)
-    table_response = table.get_item(Key={"site": site, "statusType": statusType})
+    table_response = status_table.get_item(Key={"site": site, "statusType": statusType})
     return table_response
 
 
@@ -176,7 +176,6 @@ def postStatusHttp(event, context):
     Example request body: {'statusType': 'devicesStatus', 'status': {...}}
     '''
     body = _get_body(event)
-    table = dynamodb.Table(STATUS_TABLE)
     site = event['pathParameters']['site']
 
     # Check that all required keys are present.
@@ -214,10 +213,43 @@ def postStatusWs(event, context):
 
 
 def getSiteDeviceStatus(event, context):
-    table = dynamodb.Table(STATUS_TABLE)
     site = event['pathParameters']['site']
     table_response = getStatus(site, "deviceStatus")
     return _get_response(200, table_response)
+
+def getAllSiteOpenStatus(event, context):
+    #status_table = dynamodb.Table('photonranch-status')
+    allOpenStatus = {}
+    trues = ['Yes', 'yes', 'True', 'true', True]
+    falses = ['No', 'no', 'False', 'false', False]
+    time_now = time.time()
+    response = status_table.scan()
+    for stat in response['Items']:
+
+        site = stat['site'] 
+        allOpenStatus[site] = {}
+        status_age_s = int(time_now - float(stat['server_timestamp_ms'])/1000)
+        allOpenStatus[site]['status_age_s'] = status_age_s
+
+        # Handle the sites that don't have weather status
+        try:
+            weather_key = list(stat['status']['observing_conditions'])[0]
+            weather_status = stat['status']['observing_conditions'][weather_key]
+        except IndexError:
+            print(f"Site {site} does not have a weather station")
+            allOpenStatus[site]['hasWeatherStatus'] = False
+            continue
+
+        # We care mainly about 'weather_ok' and 'open_ok'.
+        allOpenStatus[site]['hasWeatherStatus'] = True
+        allOpenStatus[site]['weather_ok'] = weather_status.get('wx_ok', False) in trues
+        allOpenStatus[site]['open_ok'] = weather_status.get('open_ok', False) in trues
+
+    return _get_response(200, allOpenStatus)
+
+       
+
+    
 
 def updateSubscriberSite(event, context):
     '''
@@ -232,12 +264,11 @@ def updateSubscriberSite(event, context):
     except:
         return _get_response(400, 'Missing the subscribers new site')
 
-    table = dynamodb.Table(STATUS_SUBSCRIBERS)
     subscriber = {
         "ConnectionID": connectionId,
         "site": site
     }
-    table.put_item(Item=subscriber)
+    subscribers_table.put_item(Item=subscriber)
     return _get_response(200, f"Successfully subscribed to {site}.")
     
 
@@ -245,3 +276,4 @@ def updateSubscriberSite(event, context):
 
 if __name__=="__main__":
     print('hello')
+    getAllSiteOpenStatus([],[])

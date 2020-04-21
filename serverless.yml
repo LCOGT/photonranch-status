@@ -191,6 +191,26 @@ functions:
               - X-Amz-User-Agent
               - Access-Control-Allow-Origin
               - Access-Control-Allow-Credentials
+  getAllOpenStatus:
+    handler: handler.getAllSiteOpenStatus
+    events:
+      - http:
+          path: /allopenstatus
+          method: get
+          #authorizer:
+            #name: authorizerFunc
+            #resultTtlInSeconds: 0 # Don't cache the policy or other tasks will fail!
+          cors:
+            origin: '*'
+            headers:
+              - Content-Type
+              - X-Amz-Date
+              - Authorization
+              - X-Api-Key
+              - X-Amz-Security-Token
+              - X-Amz-User-Agent
+              - Access-Control-Allow-Origin
+              - Access-Control-Allow-Credentials
   
   connectionHandler:
     handler: handler.connection_manager
