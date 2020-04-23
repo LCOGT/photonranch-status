@@ -2,7 +2,7 @@ import json, os, boto3, decimal, sys, ulid, logging, time
 from boto3.dynamodb.conditions import Key, Attr
 from botocore.exceptions import ClientError
 
-from helpers import _get_response, _get_body, DecimalEncoder
+from helpers import _get_response, _get_body, DecimalEncoder, _empty_strings_to_dash
 from helpers import *
 
 """
@@ -151,12 +151,13 @@ def postStatus(site, statusType, status):
     {'statusType': 'devicesStatus', 'status': {...}}
     '''
 
-    dynamodb_entry = {
+    entry = {
         "site": site,    
         "statusType": statusType,
         "status": status,
         "server_timestamp_ms": int(time.time() * 1000),
     }
+    dynamodb_entry = _empty_strings_to_dash(entry)
 
     table_response = status_table.put_item(Item=dynamodb_entry)
     return table_response

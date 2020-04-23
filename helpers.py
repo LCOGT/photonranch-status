@@ -39,3 +39,31 @@ class DecimalEncoder(json.JSONEncoder):
             else:
                 return int(o)
         return super(DecimalEncoder, self).default(o)
+
+def _empty_strings_to_dash(d):
+    for x in d:
+        if d[x] == '': d[x] = '-' 
+        if type(d[x]) is dict: d[x] = _empty_strings_to_dash(d[x])
+    return d
+
+#if __name__ == "__main__":
+
+
+    #theDict = {
+        #'key1': 'val1',
+        #'emptyKey': '',
+        #'subDict': {
+            #'sub1': 'subval1',
+            #'anotherSub': {
+                #'empty1': '',
+                #'false': False,
+            #},
+            #'empty2': '',
+        #},
+    #}
+    #print(json.dumps(theDict, indent=2))
+    #clean = _empty_strings_to_dash(theDict)
+    #print(json.dumps(clean, indent=2))
+
+
+

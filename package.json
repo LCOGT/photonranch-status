@@ -3,10 +3,10 @@
   "description": "",
   "version": "0.1.0",
   "dependencies": {
-    "serverless-domain-manager": "^3.3.1",
+    "serverless-domain-manager": "^3.3.2",
     "serverless-dynamodb-pitr": "^0.1.1"
   },
   "devDependencies": {
-    "serverless-python-requirements": "^5.0.1"
+    "serverless-python-requirements": "^5.1.0"
   }
 }
