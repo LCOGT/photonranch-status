@@ -159,6 +159,9 @@ def postStatus(site, statusType, status):
     }
     dynamodb_entry = _empty_strings_to_dash(entry)
 
+    # Convert floats into decimals for dynamodb
+    dynamodb_entry = json.loads(json.dumps(dynamodb_entry), parse_float=decimal.Decimal)
+
     table_response = status_table.put_item(Item=dynamodb_entry)
     return table_response
 
