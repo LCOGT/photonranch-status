@@ -20,24 +20,30 @@ custom:
     - tableName: ${self:custom.statusTable}
       enabled: true
 
+  # This is the 'variable' for the customDomain.basePath value, based on the stage.
+  # Run as `sls deploy --stage <stage_name>`
+  stage: 
+    dev: status
+    test: test
+
   # Make sure to first run 'serverless create_domain'
   customDomain:
     domainName: 'status.photonranch.org'
-    basePath: 'status' 
+    basePath: ${self:custom.stage.${self:provider.stage}}
     stage: ${self:provider.stage}
     createRoute53Record: true
 
 
 provider:
   name: aws
-  stage: dev
+  stage: ${opt:stage, "test"}
   runtime: python3.7
   region: us-east-1
   websocketsApiName: websockets-photonranch-status
   websocketsApiRouteSelectionExpression: $request.body.action
   environment: 
-    STATUS_TABLE: ${self:custom.statusTable}
-    STATUS_CONNECTION_TABLE: ${self:custom.statusConnectionsTable}
+    STATUS_TABLE: ${self:custom.statusTable}-${self:custom.stage.${self:provider.stage}}
+    STATUS_CONNECTION_TABLE: ${self:custom.statusConnectionsTable}-${self:custom.stage.${self:provider.stage}}
     AUTH0_CLIENT_ID: ${file(./secrets.json):AUTH0_CLIENT_ID}
     AUTH0_CLIENT_PUBLIC_KEY: ${file(./public_key)}
     WSS_URL:
@@ -115,7 +121,7 @@ resources: # CloudFormation template syntax from here on.
     statusTable: 
       Type: AWS::DynamoDB::Table
       Properties:
-        TableName: ${self:custom.statusTable}
+        TableName: ${self:custom.statusTable}-${self:custom.stage.${self:provider.stage}}
         AttributeDefinitions:
           - AttributeName: site 
             AttributeType: S
@@ -130,13 +136,13 @@ resources: # CloudFormation template syntax from here on.
           ReadCapacityUnits: 1
           WriteCapacityUnits: 1
         StreamSpecification:
-          StreamViewType: NEW_AND_OLD_IMAGES
+          StreamViewType: NEW_IMAGE
 
     # Store the clients that are subscribed to status updates
     connectionsTable: 
       Type: AWS::DynamoDB::Table
       Properties:
-        TableName: ${self:custom.statusConnectionsTable}
+        TableName: ${self:custom.statusConnectionsTable}-${self:custom.stage.${self:provider.stage}}
         AttributeDefinitions:
           - AttributeName: ConnectionID
             AttributeType: S
