@@ -17,7 +17,7 @@ custom:
   statusConnectionsTable: photonranch-status-connections
   statusTable: photonranch-status
   pitr: # enable point-in-time recovery
-    - tableName: ${self:custom.statusTable}
+    - tableName: ${self:custom.statusTable}-${self:provider.stage}
       enabled: true
 
   # This is the 'variable' for the customDomain.basePath value, based on the stage.
@@ -42,8 +42,12 @@ provider:
   websocketsApiName: websockets-photonranch-status
   websocketsApiRouteSelectionExpression: $request.body.action
   environment: 
-    STATUS_TABLE: ${self:custom.statusTable}-${self:custom.stage.${self:provider.stage}}
-    STATUS_CONNECTION_TABLE: ${self:custom.statusConnectionsTable}-${self:custom.stage.${self:provider.stage}}
+    STATUS_TABLE: 
+      Ref: statusTable
+    STATUS_CONNECTION_TABLE: 
+      Ref: connectionsTable
+    QUEUE_URL:
+      Ref: StatusDeliveryQueue
     AUTH0_CLIENT_ID: ${file(./secrets.json):AUTH0_CLIENT_ID}
     AUTH0_CLIENT_PUBLIC_KEY: ${file(./public_key)}
     WSS_URL:
@@ -71,6 +75,12 @@ provider:
         #- "arn:aws:dynamodb:${self:provider.region}:*:table/${self:custom.statusTable}*"
         #- "arn:aws:dynamodb:${self:provider.region}:*:table/${self:custom.statusConnectionsTable}*"
         - "arn:aws:dynamodb:${self:provider.region}:*:*"
+
+    - Effect: Allow
+      Action:
+        - sqs:SendMessage
+      Resource:
+        - Fn::GetAtt: [ StatusDeliveryQueue, Arn ]
 
 resources: # CloudFormation template syntax from here on.
   Resources:
@@ -121,7 +131,7 @@ resources: # CloudFormation template syntax from here on.
     statusTable: 
       Type: AWS::DynamoDB::Table
       Properties:
-        TableName: ${self:custom.statusTable}-${self:custom.stage.${self:provider.stage}}
+        TableName: ${self:custom.statusTable}-${self:provider.stage}
         AttributeDefinitions:
           - AttributeName: site 
             AttributeType: S
@@ -132,9 +142,7 @@ resources: # CloudFormation template syntax from here on.
             KeyType: HASH
           - AttributeName: statusType
             KeyType: RANGE
-        ProvisionedThroughput:
-          ReadCapacityUnits: 1
-          WriteCapacityUnits: 1
+        BillingMode: PAY_PER_REQUEST
         StreamSpecification:
           StreamViewType: NEW_IMAGE
 
@@ -142,16 +150,33 @@ resources: # CloudFormation template syntax from here on.
     connectionsTable: 
       Type: AWS::DynamoDB::Table
       Properties:
-        TableName: ${self:custom.statusConnectionsTable}-${self:custom.stage.${self:provider.stage}}
+        TableName: ${self:custom.statusConnectionsTable}-${self:provider.stage}
         AttributeDefinitions:
           - AttributeName: ConnectionID
             AttributeType: S
         KeySchema:
           - AttributeName: ConnectionID
             KeyType: HASH
-        ProvisionedThroughput:
-          ReadCapacityUnits: 1
-          WriteCapacityUnits: 1
+        TimeToLiveSpecification:
+          AttributeName: expiration
+          Enabled: true
+        BillingMode: PAY_PER_REQUEST
+
+    StatusDeliveryQueue:
+      Type: AWS::SQS::Queue
+      Properties:
+        QueueName: statusDeliveryQueue-${self:provider.stage}
+        RedrivePolicy:
+          deadLetterTargetArn:
+            Fn::GetAtt:
+              - StatusDeliveryDLQ
+              - Arn
+          maxReceiveCount: 5
+
+    StatusDeliveryDLQ:
+      Type: AWS::SQS::Queue
+      Properties:
+        QueueName: workerDlq-${self:provider.stage}
 
 functions:
   authorizerFunc: 
@@ -248,4 +273,12 @@ functions:
               - statusTable
               - StreamArn
 
-
+  statusDeliveryWorker:
+    handler: handler.status_delivery_worker
+    events:
+      - sqs:
+          batchSize: 1
+          arn:
+            Fn::GetAtt:
+              - StatusDeliveryQueue
+              - Arn
