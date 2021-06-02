@@ -9,4 +9,4 @@ PyJWT==1.6.4
 requests==2.22.0
 six==1.13.0
 ulid-py==0.0.12
-urllib3==1.25.7
+urllib3==1.26.5
