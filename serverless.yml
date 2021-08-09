@@ -44,27 +44,27 @@ provider:
   environment: 
     STATUS_TABLE: 
       Ref: statusTable
-    STATUS_CONNECTION_TABLE: 
-      Ref: connectionsTable
-    QUEUE_URL:
-      Ref: StatusDeliveryQueue
+    #STATUS_CONNECTION_TABLE: 
+      #Ref: connectionsTable
+    #QUEUE_URL:
+      #Ref: StatusDeliveryQueue
     AUTH0_CLIENT_ID: ${file(./secrets.json):AUTH0_CLIENT_ID}
     AUTH0_CLIENT_PUBLIC_KEY: ${file(./public_key)}
-    WSS_URL:
-      Fn::Join:
-        - ""
-        - - "https://"
-          - Ref: "WebsocketsApi"
-          - ".execute-api.${self:provider.region}.amazonaws.com/${self:provider.stage}"
+    #WSS_URL:
+      #Fn::Join:
+        #- ""
+        #- - "https://"
+          #- Ref: "WebsocketsApi"
+          #- ".execute-api.${self:provider.region}.amazonaws.com/${self:provider.stage}"
   iamRoleStatements:
     - Effect: Allow 
       Action: 
-        - "dynamodb:PutItem"
-        - "dynamodb:GetItem"
-        - "dynamodb:UpdateItem"
-        - "dynamodb:DeleteItem"
-        - "dynamodb:Scan"
-        - "dynamodb:Query"
+        - dynamodb:PutItem
+        - dynamodb:GetItem
+        - dynamodb:UpdateItem
+        - dynamodb:DeleteItem
+        - dynamodb:Scan
+        - dynamodb:Query
         - dynamodb:DescribeStream
         - dynamodb:GetRecords
         - dynamodb:GetShardIterator
@@ -79,12 +79,13 @@ provider:
     - Effect: Allow
       Action:
         - sqs:SendMessage
+        - sqs:GetQueueUrl
       Resource:
-        - Fn::GetAtt: [ StatusDeliveryQueue, Arn ]
+        #- Fn::GetAtt: [ StatusDeliveryQueue, Arn ]
+        - "arn:aws:sqs:${self:provider.region}:*:*"
 
-resources: # CloudFormation template syntax from here on.
+resources: 
   Resources:
-
     # Configure API gateway "Gateway Responses" to work with CORS restrictions
     GatewayResponseDefault4XX:
       Type: 'AWS::ApiGateway::GatewayResponse'
@@ -147,43 +148,43 @@ resources: # CloudFormation template syntax from here on.
           StreamViewType: NEW_IMAGE
 
     # Store the clients that are subscribed to status updates
-    connectionsTable: 
-      Type: AWS::DynamoDB::Table
-      Properties:
-        TableName: ${self:custom.statusConnectionsTable}-${self:provider.stage}
-        AttributeDefinitions:
-          - AttributeName: ConnectionID
-            AttributeType: S
-        KeySchema:
-          - AttributeName: ConnectionID
-            KeyType: HASH
-        TimeToLiveSpecification:
-          AttributeName: expiration
-          Enabled: true
-        BillingMode: PAY_PER_REQUEST
+    #connectionsTable: 
+      #Type: AWS::DynamoDB::Table
+      #Properties:
+        #TableName: ${self:custom.statusConnectionsTable}-${self:provider.stage}
+        #AttributeDefinitions:
+          #- AttributeName: ConnectionID
+            #AttributeType: S
+        #KeySchema:
+          #- AttributeName: ConnectionID
+            #KeyType: HASH
+        #TimeToLiveSpecification:
+          #AttributeName: expiration
+          #Enabled: true
+        #BillingMode: PAY_PER_REQUEST
 
-    StatusDeliveryQueue:
-      Type: AWS::SQS::Queue
-      Properties:
-        QueueName: statusDeliveryQueue-${self:provider.stage}
-        RedrivePolicy:
-          deadLetterTargetArn:
-            Fn::GetAtt:
-              - StatusDeliveryDLQ
-              - Arn
-          maxReceiveCount: 5
+    #StatusDeliveryQueue:
+      #Type: AWS::SQS::Queue
+      #Properties:
+        #QueueName: statusDeliveryQueue-${self:provider.stage}
+        #RedrivePolicy:
+          #deadLetterTargetArn:
+            #Fn::GetAtt:
+              #- StatusDeliveryDLQ
+              #- Arn
+          #maxReceiveCount: 5
 
-    StatusDeliveryDLQ:
-      Type: AWS::SQS::Queue
-      Properties:
-        QueueName: workerDlq-${self:provider.stage}
+    #StatusDeliveryDLQ:
+      #Type: AWS::SQS::Queue
+      #Properties:
+        #QueueName: workerDlq-${self:provider.stage}
 
 functions:
   authorizerFunc: 
     handler: authorizer.auth
     cors: true
   postStatus:
-    handler: handler.postStatusHttp
+    handler: handler.post_status_http
     events:
       - http:
           path: /{site}/status
@@ -203,7 +204,7 @@ functions:
               - Access-Control-Allow-Origin
               - Access-Control-Allow-Credentials
   getSiteDeviceStatus:
-    handler: handler.getSiteDeviceStatus
+    handler: handler.get_site_device_status
     events:
       - http:
           path: /{site}/device_status
@@ -223,7 +224,7 @@ functions:
               - Access-Control-Allow-Origin
               - Access-Control-Allow-Credentials
   getAllOpenStatus:
-    handler: handler.getAllSiteOpenStatus
+    handler: handler.get_all_site_open_status
     events:
       - http:
           path: /allopenstatus
@@ -243,28 +244,28 @@ functions:
               - Access-Control-Allow-Origin
               - Access-Control-Allow-Credentials
   
-  connectionHandler:
-    handler: handler.connection_manager
-    events: 
-      - websocket: 
-          route: $connect
-      - websocket:
-          route: $disconnect
+  #connectionHandler:
+    #handler: handler.connection_manager
+    #events: 
+      #- websocket: 
+          #route: $connect
+      #- websocket:
+          #route: $disconnect
   
-  updateSubscriberSite:
-    handler: handler.updateSubscriberSite
-    events:
-      - websocket:
-          route: updateSubscriberSite
+  #updateSubscriberSite:
+    #handler: handler.update_subscriber_site
+    #events:
+      #- websocket:
+          #route: updateSubscriberSite
   
-  postStatusWs:
-    handler: handler.postStatusWs
-    events:
-      - websocket:
-          route: postStatus
+  #postStatusWs:
+    #handler: handler.post_status_ws
+    #events:
+      #- websocket:
+          #route: postStatus
 
   streamFunction:
-    handler: handler.streamHandler
+    handler: handler.stream_handler
     events:
       - stream: 
           type: dynamodb
@@ -273,12 +274,12 @@ functions:
               - statusTable
               - StreamArn
 
-  statusDeliveryWorker:
-    handler: handler.status_delivery_worker
-    events:
-      - sqs:
-          batchSize: 1
-          arn:
-            Fn::GetAtt:
-              - StatusDeliveryQueue
-              - Arn
+  #statusDeliveryWorker:
+    #handler: handler.status_delivery_worker
+    #events:
+      #- sqs:
+          #batchSize: 1
+          #arn:
+            #Fn::GetAtt:
+              #- StatusDeliveryQueue
+              #- Arn

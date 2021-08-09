@@ -1,10 +1,10 @@
-import json, os, boto3, decimal, sys, ulid
+import json, os, boto3, decimal, sys, ulid, time, random
 from boto3.dynamodb.conditions import Key, Attr
 from botocore.exceptions import ClientError
 
 
 #=========================================#
-#=======     Helper Functions     ========#
+#=======    Utility Functions     ========#
 #=========================================#
 
 
@@ -46,24 +46,25 @@ def _empty_strings_to_dash(d):
         if type(d[x]) is dict: d[x] = _empty_strings_to_dash(d[x])
     return d
 
-#if __name__ == "__main__":
+def get_queue_url(queueName):
+    sqs_client = boto3.client("sqs", region_name="us-east-1")
+    response = sqs_client.get_queue_url(
+        QueueName=queueName,
+    )
+    return response["QueueUrl"]
 
+def send_to_datastream(site, data):
+    sqs = boto3.client('sqs')
+    queue_url = get_queue_url('datastreamIncomingQueue-dev')
 
-    #theDict = {
-        #'key1': 'val1',
-        #'emptyKey': '',
-        #'subDict': {
-            #'sub1': 'subval1',
-            #'anotherSub': {
-                #'empty1': '',
-                #'false': False,
-            #},
-            #'empty2': '',
-        #},
-    #}
-    #print(json.dumps(theDict, indent=2))
-    #clean = _empty_strings_to_dash(theDict)
-    #print(json.dumps(clean, indent=2))
-
-
-
+    payload = {
+        "topic": "sitestatus",
+        "site": site,
+        "data": data,
+    }
+    response = sqs.send_message(
+        QueueUrl=queue_url,
+        MessageBody=json.dumps(payload, cls=DecimalEncoder),
+    )
+    return response
+    
