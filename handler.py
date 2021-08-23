@@ -13,59 +13,17 @@ TODO:
 
 """
 
-logger = logging.getLogger()
-logger.setLevel(logging.DEBUG)
-
 dynamodb = boto3.resource('dynamodb')
 
 try:
     status_table = dynamodb.Table(os.getenv('STATUS_TABLE'))
-    #subscribers_table = dynamodb.Table(os.getenv('STATUS_CONNECTION_TABLE'))
-    #WSS_URL = os.getenv('WSS_URL')
 except Exception as e:
     print(e)
-
-
-#QUEUE_URL = os.getenv('QUEUE_URL')
-#SQS = boto3.client('sqs')
-
-
-#def connection_manager(event, context):
-    #"""
-    #Handles connecting and disconnecting for the Websocket
-    #"""
-    #connection_id = event["requestContext"].get("connectionId")
-
-    #if event["requestContext"]["eventType"] == "CONNECT":
-        #logger.info("Connect requested")
-
-        ## Check that the subscriber specified which site they are subscribed to.
-        #try:
-            #site = event["queryStringParameters"]["site"]
-        #except:
-            #return _get_response(400, "No site specified")
-
-        ## Add connection_id to the database
-        #add_connection(connection_id, site)
-        #return _get_response(200, "Connect successful.")
-
-    #elif event["requestContext"]["eventType"] in ("DISCONNECT", "CLOSE"):
-        #logger.info("Disconnect requested")
-        
-        ## Remove the connection_id from the database
-        #subscribers_table.delete_item(Key={"ConnectionID": connection_id}) 
-        #remove_connection(connection_id)
-        #return _get_response(200, "Disconnect successful.")
-
-    #else:
-        #logger.error("Connection manager received unrecognized eventType '{}'")
-        #return _get_response(500, "Unrecognized eventType.")
 
 
 def stream_handler(event, context):
     print(f"size of stream event: {len(event['Records'])}")
     print(json.dumps(event))
-    #data = event['Records'][0]['dynamodb']['NewImage']
     records = event.get('Records', [])
     for item in records:
 
@@ -75,82 +33,13 @@ def stream_handler(event, context):
         status = get_status(site, status_type)
 
         # If the status we fetched doesn't have the key 'status', then there is no data so we should close the handler.
-        # Note: using context.succeed() prevents the dynamodb stream from continuously retrying a bad event
         if status.get('status', 'not here') == 'not here': 
-            context.succeed()
-
-        #connection_ids = get_connection_ids(site)
-
-        ## Break the list of connection IDs into a list of lists of connection IDs 
-        ## ie. from [1,2,3,4,5] to [[1,2], [3,4], [5]] using a chunk size of 2
-        ## This is so lambda functions sending data to clients can run in parallel with managable loads.
-        #chunk_size = 10
-        #chunked_connection_ids = [connection_ids[i:i+chunk_size] for i in range(0,len(connection_ids),chunk_size)]
-
-        #for connection_list in chunked_connection_ids:
-            ## Send to dispatch queue
-            #message_attrs = {
-                #'AttributeName': {'StringValue': 'AttributeValue', 'DataType': 'String'}
-            #}
-            #message_body = {
-                #"connections": connection_list,
-                #"site": site,
-                #"status_type": status_type 
-            #}
-            #SQS.send_message(
-                #QueueUrl=QUEUE_URL,
-                #MessageBody=json.dumps(message_body),
-                #MessageAttributes=message_attrs,
-            #)
+            return
 
         # Send to datastreamer
         send_to_datastream(site, status) 
 
     return _get_response(200, "stream has activated this function")
-
-
-#=========================================#
-#======    Websocket Connections   =======#
-#=========================================#
-
-#def add_connection(connection_id, site):
-    #""" Save the id of new connections subscribing to status at a site """
-    #subscriber = {
-        #"ConnectionID": connection_id,
-        #"site": site,
-        #"timestamp": decimal.Decimal(int(time.time())),
-        #"expiration": decimal.Decimal(int(time.time() + 86400)),  # connection expires in 24hrs
-        #"timestamp_iso": datetime.datetime.now().isoformat()
-    #}
-    #table_response = subscribers_table.put_item(Item=subscriber)
-    #return table_response
-
-
-#def remove_connection(connection_id):
-    #""" Remove a client from the list of subscribers, usually when the websocket closes. """
-    #table_response = subscribers_table.delete_item(Key={"ConnectionID": connection_id}) 
-    #return table_response
-
-
-#def get_connection_ids(site):
-    #""" Get a list of websocket connections subscribed to the given site """
-    #subscribers_query = subscribers_table.scan(
-        #ProjectionExpression="ConnectionID, site",
-        #FilterExpression=Key('site').eq(site)
-    #)
-    #site_subscribers = subscribers_query.get("Items", [])
-    #connection_ids = [c["ConnectionID"] for c in site_subscribers]
-    #return connection_ids
-
-
-#def send_to_connection(connection_id, data, wss_url):
-    #gatewayapi = boto3.client("apigatewaymanagementapi", endpoint_url=wss_url)
-    #dataToSend = json.dumps(data, cls=DecimalEncoder).encode('utf-8')
-    #post_response = gatewayapi.post_to_connection(
-        #ConnectionId=connection_id,
-        #Data=dataToSend
-    #)
-    #return post_response
 
 
 #=========================================#
@@ -186,6 +75,23 @@ def get_status(site, status_type):
     return table_response.get("Item", {})
 
 
+def get_combined_site_status(site):
+    all_status_entries = status_table.scan(
+        FilterExpression = Attr('site').eq(site)
+    )
+    combined_status = {}
+    latest_timestamp = 0
+    for item in all_status_entries['Items']:
+        combined_status = dict(combined_status, **item.get('status', {})) 
+        latest_timestamp = max(float(item.get("server_timestamp_ms", 0)), latest_timestamp)
+    return {
+        "site": site,
+        "statusType": "combined",
+        "server_timestamp_ms": latest_timestamp,
+        "status": combined_status
+    }
+
+
 #=========================================#
 #=======       API Endpoints      ========#
 #=========================================#
@@ -217,27 +123,41 @@ def post_status_http(event, context):
     return _get_response(200, response)
 
 
-#def post_status_ws(event, context):
-    #'''
-    #Update a site's status from a websocket connection. 
-    #NOTE: still need to authenticate the connection as a valid site. 
-    #'''
-    #body = _get_body(event)
-    #try:
-        #site = body.get('site')
-        #statusType = body.get('statusType')
-        #status = body.get('status')
-    #except:
-        #return _get_response(400, 'Must include keys: site, statusType, status.')
-    #response = post_status(site, body['statusType'], body['status'])
-    #return _get_response(200, response)
-
-
 def get_site_device_status(event, context):
     """ Return the full status for the requested site """
     site = event['pathParameters']['site']
     status = get_status(site, "deviceStatus")
     return _get_response(200, status)
+
+
+def get_site_wx_enc_status(event, context):
+    site = event['pathParameters']['site']
+    status = get_status(site, "wxEncStatus")
+    return _get_response(200, status)
+
+
+def get_site_complete_status(event, context):
+    """ Return the full status for the requested site """
+    if event['pathParameters']['site'] == '':
+        return _get_response(400, 'Site not provided.')
+    site = event['pathParameters']['site']
+    status = get_combined_site_status(site)
+    return _get_response(200, status)
+
+
+def clear_all_site_status(event, context):
+    site = event['pathParameters']['site']
+    all_status_entries = status_table.scan(
+        FilterExpression = Attr('site').eq(site)
+    )
+    items_removed = []
+    for item in all_status_entries['Items']:
+        response = status_table.delete_item(Key={
+            "site": item['site'],
+            "statusType": item['statusType']
+        })
+        items_removed.append(response)
+    return _get_response(200, {"items_removed": items_removed})
 
 
 def get_all_site_open_status(event, context):
@@ -275,49 +195,23 @@ def get_all_site_open_status(event, context):
     return _get_response(200, allOpenStatus)
 
 
-#def update_subscriber_site(event, context):
-    #'''
-    #Change the site associated with a connectionId. This connection will only
-    #be sent updates for that site. 
-    #'''
-    #connection_id = event['requestContext'].get('connectionId')
-    #body = _get_body(event)
+if __name__=="__main__":
+    print('hello')
+    table = dynamodb.Table('photonranch-status-dev')
+    stat = table.get_item(Key={"site": "mrc", "statusType": "deviceStatus"})
+    upload = stat['Item']
+    print(upload['status'].keys())
+    upload['status'].pop('enclosure')
+    print(upload['status'].keys())
+    #print(table.put_item(Item=upload))
 
-    #try:
-        #site = body.get('site')
-    #except:
-        #return _get_response(400, 'Missing the subscribers new site')
-
-    ## Update the connections table entry
-    #add_connection(connection_id, site)
-
-    #return _get_response(200, f"Successfully subscribed to {site}.")
-
-
-#def status_delivery_worker(event, context):
-    #""" Send site status updates to subscribing websocket clients.
-    
-    #This function listens to the sqs queue StatusDeliveryQueue. 
-    #Messages in the queue contain a list of connection ids and the site and status_type used to obtain the latest 
-    #status to send. 
-    #"""
-    #for record in event['Records']:
-        #logger.info(f'Message body: {record["body"]}')
-        #logger.info( f'Message attribute: {record["messageAttributes"]["AttributeName"]["stringValue"]}')
-
-        ## Parse the queue message content
-        #message = json.loads(record["body"])
-        #connections = message["connections"]
-        #site = message["site"]
-        #status_type = message["status_type"]
-
-        ## Get the status (to send) from dynamodb
-        #status = get_status(site, status_type)
-
-        ## Send to each connected client
-        #for connection_id in connections:
-            #try: 
-                #send_to_connection(connection_id, status, WSS_URL)
-            #except Exception as e:
-                #print(f"Could not send to connection {connection_id}")
-                #print(e)
+    #table.delete_item(Key={"site": "test", "statusType": "deviceStatus"})
+    site = 'tst'
+    all_status_entries = table.scan(
+        FilterExpression = Attr('site').eq(site)
+    )
+    for item in all_status_entries['Items']:
+        table.delete_item(Key={
+            "site": item['site'],
+            "statusType": item['statusType']
+        })

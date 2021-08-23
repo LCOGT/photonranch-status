@@ -203,6 +203,20 @@ functions:
               - X-Amz-User-Agent
               - Access-Control-Allow-Origin
               - Access-Control-Allow-Credentials
+  getSiteCompleteStatus:
+    handler: handler.get_site_complete_status
+    events:
+      - http:
+          path: /{site}/complete_status
+          method: get
+          cors: true
+  clearAllSiteStatus:
+    handler: handler.clear_all_site_status
+    events: 
+      - http:
+          path: /{site}/clear_all_status
+          method: get
+          cors: true
   getSiteDeviceStatus:
     handler: handler.get_site_device_status
     events:
@@ -244,26 +258,6 @@ functions:
               - Access-Control-Allow-Origin
               - Access-Control-Allow-Credentials
   
-  #connectionHandler:
-    #handler: handler.connection_manager
-    #events: 
-      #- websocket: 
-          #route: $connect
-      #- websocket:
-          #route: $disconnect
-  
-  #updateSubscriberSite:
-    #handler: handler.update_subscriber_site
-    #events:
-      #- websocket:
-          #route: updateSubscriberSite
-  
-  #postStatusWs:
-    #handler: handler.post_status_ws
-    #events:
-      #- websocket:
-          #route: postStatus
-
   streamFunction:
     handler: handler.stream_handler
     events:
@@ -274,12 +268,3 @@ functions:
               - statusTable
               - StreamArn
 
-  #statusDeliveryWorker:
-    #handler: handler.status_delivery_worker
-    #events:
-      #- sqs:
-          #batchSize: 1
-          #arn:
-            #Fn::GetAtt:
-              #- StatusDeliveryQueue
-              #- Arn
