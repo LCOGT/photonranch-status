@@ -80,14 +80,17 @@ def get_combined_site_status(site):
         FilterExpression = Attr('site').eq(site)
     )
     combined_status = {}
+    status_age_timestamps = {}
     latest_timestamp = 0
     for item in all_status_entries['Items']:
         combined_status = dict(combined_status, **item.get('status', {})) 
+        status_age_timestamps[item.get('statusType')] = item.get('server_timestamp_ms')
         latest_timestamp = max(float(item.get("server_timestamp_ms", 0)), latest_timestamp)
     return {
         "site": site,
         "statusType": "combined",
-        "server_timestamp_ms": latest_timestamp,
+        "latest_status_timestamp_ms": latest_timestamp,
+        "status_age_timestamps_ms": status_age_timestamps,
         "status": combined_status
     }
 

@@ -44,18 +44,8 @@ provider:
   environment: 
     STATUS_TABLE: 
       Ref: statusTable
-    #STATUS_CONNECTION_TABLE: 
-      #Ref: connectionsTable
-    #QUEUE_URL:
-      #Ref: StatusDeliveryQueue
     AUTH0_CLIENT_ID: ${file(./secrets.json):AUTH0_CLIENT_ID}
     AUTH0_CLIENT_PUBLIC_KEY: ${file(./public_key)}
-    #WSS_URL:
-      #Fn::Join:
-        #- ""
-        #- - "https://"
-          #- Ref: "WebsocketsApi"
-          #- ".execute-api.${self:provider.region}.amazonaws.com/${self:provider.stage}"
   iamRoleStatements:
     - Effect: Allow 
       Action: 
@@ -146,38 +136,6 @@ resources:
         BillingMode: PAY_PER_REQUEST
         StreamSpecification:
           StreamViewType: NEW_IMAGE
-
-    # Store the clients that are subscribed to status updates
-    #connectionsTable: 
-      #Type: AWS::DynamoDB::Table
-      #Properties:
-        #TableName: ${self:custom.statusConnectionsTable}-${self:provider.stage}
-        #AttributeDefinitions:
-          #- AttributeName: ConnectionID
-            #AttributeType: S
-        #KeySchema:
-          #- AttributeName: ConnectionID
-            #KeyType: HASH
-        #TimeToLiveSpecification:
-          #AttributeName: expiration
-          #Enabled: true
-        #BillingMode: PAY_PER_REQUEST
-
-    #StatusDeliveryQueue:
-      #Type: AWS::SQS::Queue
-      #Properties:
-        #QueueName: statusDeliveryQueue-${self:provider.stage}
-        #RedrivePolicy:
-          #deadLetterTargetArn:
-            #Fn::GetAtt:
-              #- StatusDeliveryDLQ
-              #- Arn
-          #maxReceiveCount: 5
-
-    #StatusDeliveryDLQ:
-      #Type: AWS::SQS::Queue
-      #Properties:
-        #QueueName: workerDlq-${self:provider.stage}
 
 functions:
   authorizerFunc: 
