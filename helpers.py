@@ -1,6 +1,4 @@
-import json, os, boto3, decimal, sys, ulid, time, random
-from boto3.dynamodb.conditions import Key, Attr
-from botocore.exceptions import ClientError
+import json, boto3, decimal
 
 
 #=========================================#
@@ -34,7 +32,7 @@ def _get_body(event):
 class DecimalEncoder(json.JSONEncoder):
     def default(self, o):
         if isinstance(o, decimal.Decimal):
-            if o % 1 > 0:
+            if o % 1 != 0:
                 return float(o)
             else:
                 return int(o)
@@ -68,3 +66,51 @@ def send_to_datastream(site, data):
     )
     return response
     
+    
+
+def add_item_timestamps(status_dict, timestamp):
+    """ Convert all status values into dicts that include the value and a timestamp to denote age. 
+    
+    For example, if the original status dict is
+    status = {
+        "mount": {
+            "mount1": {
+                "declination": 89.9 
+            }
+        }
+    },
+    then running add_item_timestamps(status, 12345) will return
+    status = {
+        "mount": {
+            "mount1": {
+                "declination": {
+                    "val": 89.9,
+                    "timestamp": 12345
+                }
+            }
+        }
+    }
+    """
+    s = dict(status_dict)  # make a copy
+    for device_type in s:
+        if type(s[device_type]) != dict: continue
+        for device_instance in s[device_type]:
+            if type(s[device_type][device_instance]) != dict: continue
+            for status_key in s[device_type][device_instance]:
+                s[device_type][device_instance][status_key] = {
+                    "val": s[device_type][device_instance][status_key],
+                    "timestamp": timestamp
+                }
+    return s
+    
+
+def merge_dicts(main_dict, updates_dict):
+    """ Recursively merges updates_dict into main_dict"""
+    if not isinstance(main_dict, dict) or not isinstance(updates_dict, dict):
+        return updates_dict
+    for k in updates_dict:
+        if k in main_dict:
+            main_dict[k] = merge_dicts(main_dict[k], updates_dict[k])
+        else:
+            main_dict[k] = updates_dict[k]
+    return main_dict

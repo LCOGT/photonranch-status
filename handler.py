@@ -1,14 +1,17 @@
-import json, os, boto3, decimal, sys, ulid, logging, time, datetime
-from boto3.dynamodb.conditions import Key, Attr
-from botocore.exceptions import ClientError
+import json, os, boto3, decimal, time
+from boto3.dynamodb.conditions import  Attr
 
-from helpers import _get_response, _get_body, DecimalEncoder, _empty_strings_to_dash
-from helpers import *
+from helpers import _get_response 
+from helpers import _get_body 
+from helpers import DecimalEncoder
+from helpers import _empty_strings_to_dash
+from helpers import send_to_datastream
+from helpers import add_item_timestamps
+from helpers import merge_dicts
 
 """
 TODO:
 - auth guard for posting status
-- clean 'get_all_site_open_status' method
 - clean env variable loading and aws resource connecting
 
 """
@@ -47,19 +50,43 @@ def stream_handler(event, context):
 #=========================================#
 
 def post_status(site, status_type, new_status):
-    ''' 
-    {'status_type': 'devicesStatus', 'status': {...}}
-    '''
+    """ Add timestamps to the status and apply the updates to the entry in dynamodb
+
+    Args:
+        site (str): site abbreviation, used as partition key in dynamodb table
+        status_type (str): either 'deviceStatus' or 'wxEncStatus' as of 2021-09-28. Sort key in dynamodb. 
+        new_status (dict): this is the dict of new status values to apply. It should have the format:
+        
+        new_status = {
+            "device_type": {
+                "device_type_instance_name": {
+                    "key1": "val1",
+                    "key2": "val2",
+                    ...
+                },
+                ...
+            },
+            ...
+        }
+
+    Returns:
+        dict: dynamodb put_item response
+    """
+
+    server_timestamp_ms = int(time.time() * 1000)
+
+    # Add timestamps to the status items
+    new_status_with_timestamps = add_item_timestamps(new_status, server_timestamp_ms)
 
     # We want to update the existing status with new values in the incoming status. 
     existing_status = get_status(site, status_type).get("status", {})
-    merged_status = { **existing_status, **new_status}
+    merged_status = merge_dicts(existing_status, new_status_with_timestamps)
 
     entry = {
         "site": site,    
         "statusType": status_type,
         "status": merged_status,
-        "server_timestamp_ms": int(time.time() * 1000),
+        "server_timestamp_ms": server_timestamp_ms,
     }
     dynamodb_entry = _empty_strings_to_dash(entry)
 
@@ -106,6 +133,9 @@ def post_status_http(event, context):
     '''
     body = _get_body(event)
     site = event['pathParameters']['site']
+
+    print(f"site: {site}")
+    print("body: ", body)
 
     # Check that all required keys are present.
     required_keys = ['statusType', 'status']
@@ -164,38 +194,37 @@ def clear_all_site_status(event, context):
 
 
 def get_all_site_open_status(event, context):
-    #status_table = dynamodb.Table('photonranch-status')
-    allOpenStatus = {}
+    all_open_status = {}
     trues = ['Yes', 'yes', 'True', 'true', True]
     falses = ['No', 'no', 'False', 'false', False]
     time_now = time.time()
     response = status_table.scan()
-    for stat in response['Items']:
+    for status_entry in response['Items']:
 
-        site = stat['site'] 
-        allOpenStatus[site] = {}
-        status_age_s = int(time_now - float(stat['server_timestamp_ms'])/1000)
-        allOpenStatus[site]['status_age_s'] = status_age_s
+        site = status_entry['site'] 
+        all_open_status[site] = {}
+        status_age_s = int(time_now - float(status_entry['server_timestamp_ms'])/1000)
+        all_open_status[site]['status_age_s'] = status_age_s
 
         # Handle the sites that don't have weather status
         try:
-            weather_key = list(stat['status']['observing_conditions'])[0]
-            weather_status = stat['status']['observing_conditions'][weather_key]
+            weather_key = list(status_entry['status']['observing_conditions'])[0]
+            weather_status = status_entry['status']['observing_conditions'][weather_key]
             # Handle case where weather station exists but has no status
             if weather_status is None: 
                 raise Exception('No weather status')
         except Exception as e:
             print(e)
             print(f"Site {site} probably does not have a weather station")
-            allOpenStatus[site]['hasWeatherStatus'] = False
+            all_open_status[site]['hasWeatherStatus'] = False
             continue
 
         # We care mainly about 'weather_ok' and 'open_ok'.
-        allOpenStatus[site]['hasWeatherStatus'] = True
-        allOpenStatus[site]['weather_ok'] = weather_status.get('wx_ok', False) in trues
-        allOpenStatus[site]['open_ok'] = weather_status.get('open_ok', False) in trues
+        all_open_status[site]['hasWeatherStatus'] = True
+        all_open_status[site]['weather_ok'] = weather_status.get('wx_ok', False) in trues
+        all_open_status[site]['open_ok'] = weather_status.get('open_ok', False) in trues
 
-    return _get_response(200, allOpenStatus)
+    return _get_response(200, all_open_status)
 
 
 if __name__=="__main__":

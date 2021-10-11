@@ -201,9 +201,6 @@ functions:
       - http:
           path: /allopenstatus
           method: get
-          #authorizer:
-            #name: authorizerFunc
-            #resultTtlInSeconds: 0 # Don't cache the policy or other tasks will fail!
           cors:
             origin: '*'
             headers:
