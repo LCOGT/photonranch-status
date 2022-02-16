@@ -51,12 +51,12 @@ def get_queue_url(queueName):
     )
     return response["QueueUrl"]
 
-def send_to_datastream(site, data):
+def send_to_datastream(site, data, topic="sitestatus"):
     sqs = boto3.client('sqs')
     queue_url = get_queue_url('datastreamIncomingQueue-dev')
 
     payload = {
-        "topic": "sitestatus",
+        "topic": topic,
         "site": site,
         "data": data,
     }

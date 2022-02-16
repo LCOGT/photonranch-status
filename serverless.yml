@@ -168,6 +168,7 @@ functions:
           path: /{site}/complete_status
           method: get
           cors: true
+
   clearAllSiteStatus:
     handler: handler.clear_all_site_status
     events: 
@@ -175,26 +176,14 @@ functions:
           path: /{site}/clear_all_status
           method: get
           cors: true
-  getSiteDeviceStatus:
-    handler: handler.get_site_device_status
-    events:
-      - http:
-          path: /{site}/device_status
+
+  getSiteStatus:
+    handler: handler.get_site_status
+    events: 
+      - http: 
+          path: /{site}/{status_type}
           method: get
-          #authorizer:
-            #name: authorizerFunc
-            #resultTtlInSeconds: 0 # Don't cache the policy or other tasks will fail!
-          cors:
-            origin: '*'
-            headers:
-              - Content-Type
-              - X-Amz-Date
-              - Authorization
-              - X-Api-Key
-              - X-Amz-Security-Token
-              - X-Amz-User-Agent
-              - Access-Control-Allow-Origin
-              - Access-Control-Allow-Credentials
+
   getAllOpenStatus:
     handler: handler.get_all_site_open_status
     events:
@@ -212,6 +201,14 @@ functions:
               - X-Amz-User-Agent
               - Access-Control-Allow-Origin
               - Access-Control-Allow-Credentials
+
+  newPhaseStatus:
+    handler: phase_status.phase_status_handler
+    events:
+      - http:
+          path: /phase_status
+          method: post
+          cors: true
   
   streamFunction:
     handler: handler.stream_handler
@@ -222,4 +219,3 @@ functions:
             Fn::GetAtt:
               - statusTable
               - StreamArn
-

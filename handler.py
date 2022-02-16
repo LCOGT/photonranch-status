@@ -54,7 +54,7 @@ def post_status(site, status_type, new_status):
 
     Args:
         site (str): site abbreviation, used as partition key in dynamodb table
-        status_type (str): either 'deviceStatus' or 'wxEncStatus' as of 2021-09-28. Sort key in dynamodb. 
+        status_type (str): weather | enclosure | device, used as the sort key in dynamodb
         new_status (dict): this is the dict of new status values to apply. It should have the format:
         
         new_status = {
@@ -156,16 +156,10 @@ def post_status_http(event, context):
     return _get_response(200, response)
 
 
-def get_site_device_status(event, context):
-    """ Return the full status for the requested site """
+def get_site_status(event, context):
     site = event['pathParameters']['site']
-    status = get_status(site, "deviceStatus")
-    return _get_response(200, status)
-
-
-def get_site_wx_enc_status(event, context):
-    site = event['pathParameters']['site']
-    status = get_status(site, "wxEncStatus")
+    status_type = event['pathParameters']['status_type']
+    status = get_status(site, status_type)
     return _get_response(200, status)
 
 
@@ -202,48 +196,49 @@ def get_all_site_open_status(event, context):
     for status_entry in response['Items']:
 
         site = status_entry['site'] 
-        all_open_status[site] = {}
-        status_age_s = int(time_now - float(status_entry['server_timestamp_ms'])/1000)
-        all_open_status[site]['status_age_s'] = status_age_s
+        status_type = status_entry['statusType']
+        server_timestamp_ms = status_entry['server_timestamp_ms']
+        status = status_entry['status']
 
-        # Handle the sites that don't have weather status
-        try:
+        if site not in all_open_status:
+            all_open_status[site] = {}
+
+        all_open_status[site][status_type] = {
+           "status_age_s": int(time_now - (float(server_timestamp_ms) / 1000))
+        }
+
+        if status_entry['statusType'] == 'weather' and 'observing_conditions' in status_entry['status']:
             weather_key = list(status_entry['status']['observing_conditions'])[0]
             weather_status = status_entry['status']['observing_conditions'][weather_key]
-            # Handle case where weather station exists but has no status
-            if weather_status is None: 
-                raise Exception('No weather status')
-        except Exception as e:
-            print(e)
-            print(f"Site {site} probably does not have a weather station")
-            all_open_status[site]['hasWeatherStatus'] = False
-            continue
-
-        # We care mainly about 'weather_ok' and 'open_ok'.
-        all_open_status[site]['hasWeatherStatus'] = True
-        all_open_status[site]['weather_ok'] = weather_status.get('wx_ok', False) in trues
-        all_open_status[site]['open_ok'] = weather_status.get('open_ok', False) in trues
+            wx_ok = weather_status.get('wx_ok', {'val': False}).get('val') in trues
+            all_open_status[site]['wx_ok'] = wx_ok
 
     return _get_response(200, all_open_status)
 
-
+    
 if __name__=="__main__":
     print('hello')
     table = dynamodb.Table('photonranch-status-dev')
-    stat = table.get_item(Key={"site": "mrc", "statusType": "deviceStatus"})
+    stat = table.get_item(Key={"site": "tst", "statusType": "weather"})
+    print(stat)
     upload = stat['Item']
     print(upload['status'].keys())
-    upload['status'].pop('enclosure')
-    print(upload['status'].keys())
+
+    from pprint import pprint
+    status_table = table
+    pprint(get_all_site_open_status({},{}))
+
+    #upload['status'].pop('enclosure')
+    #print(upload['status'].keys())
     #print(table.put_item(Item=upload))
 
     #table.delete_item(Key={"site": "test", "statusType": "deviceStatus"})
-    site = 'tst'
-    all_status_entries = table.scan(
-        FilterExpression = Attr('site').eq(site)
-    )
-    for item in all_status_entries['Items']:
-        table.delete_item(Key={
-            "site": item['site'],
-            "statusType": item['statusType']
-        })
+    #site = 'tst'
+    #all_status_entries = table.scan(
+        #FilterExpression = Attr('site').eq(site)
+    #)
+    #for item in all_status_entries['Items']:
+        #table.delete_item(Key={
+            #"site": item['site'],
+            #"statusType": item['statusType']
+        #})

@@ -1,0 +1,6 @@
+{
+    "resource": "/",
+    "path": "/",
+    "httpMethod": "POST",
+    "body": "{ \"site\": \"tst\", \"message\": \"mock phase status message\" }" 
+}
