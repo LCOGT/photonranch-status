@@ -16,6 +16,7 @@ plugins:
 custom:
   statusConnectionsTable: photonranch-status-connections
   statusTable: photonranch-status
+  phaseStatusTable: phase-status
   pitr: # enable point-in-time recovery
     - tableName: ${self:custom.statusTable}-${self:provider.stage}
       enabled: true
@@ -44,6 +45,8 @@ provider:
   environment: 
     STATUS_TABLE: 
       Ref: statusTable
+    PHASE_STATUS_TABLE:
+      Ref: phaseStatusTable
     AUTH0_CLIENT_ID: ${file(./secrets.json):AUTH0_CLIENT_ID}
     AUTH0_CLIENT_PUBLIC_KEY: ${file(./public_key)}
   iamRoleStatements:
@@ -136,6 +139,26 @@ resources:
         BillingMode: PAY_PER_REQUEST
         StreamSpecification:
           StreamViewType: NEW_IMAGE
+    phaseStatusTable: 
+      Type: AWS::DynamoDB::Table
+      Properties:
+        TableName: ${self:custom.phaseStatusTable}-${self:provider.stage}
+        AttributeDefinitions:
+          - AttributeName: site
+            AttributeType: S
+          - AttributeName: timestamp
+            AttributeType: N
+        KeySchema:
+          - AttributeName: site
+            KeyType: HASH
+          - AttributeName: timestamp
+            KeyType: RANGE
+        ProvisionedThroughput:
+          ReadCapacityUnits: 1
+          WriteCapacityUnits: 1
+        TimeToLiveSpecification:
+          AttributeName: ttl
+          Enabled: true
 
 functions:
   authorizerFunc: 
@@ -203,11 +226,18 @@ functions:
               - Access-Control-Allow-Credentials
 
   newPhaseStatus:
-    handler: phase_status.phase_status_handler
+    handler: phase_status.post_phase_status
     events:
       - http:
           path: /phase_status
           method: post
+          cors: true
+  getPhaseStatus:
+    handler: phase_status.get_phase_status
+    events:
+      - http:
+          path: /phase_status/{site}
+          method: get
           cors: true
   
   streamFunction:
