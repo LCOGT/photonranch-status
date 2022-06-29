@@ -12,7 +12,7 @@ alt/az pointing), the weather (e.g. sky temp, wind, weather okay to open), and t
 understanding of observatory and device condition.
 
 Observatories can also send a phase status update. Similar to the [user status](https://github.com/LCOGT/photonranch-userstatus), 
-this describes the processes occuring at an observatory, but will be used for larger scale phases 
+this describes the processes occuring at an observatory but will be used for larger scale phases 
 of an observation instead of granular detail.
 
 ![Phase status and status in the GUI](images/status_and_phase.png)
@@ -217,3 +217,5 @@ An additional test endpoint is located at `https://status.photonranch.org/test`.
     })
     requests.request("POST", url, data=payload)
     ```
+
+## License
