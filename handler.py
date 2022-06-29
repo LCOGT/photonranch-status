@@ -25,6 +25,7 @@ except Exception as e:
 
 
 def stream_handler(event, context):
+    """Sends the site status event to datastream."""
     print(f"size of stream event: {len(event['Records'])}")
     print(json.dumps(event))
     records = event.get('Records', [])
@@ -50,7 +51,7 @@ def stream_handler(event, context):
 #=========================================#
 
 def post_status(site, status_type, new_status):
-    """ Add timestamps to the status and apply the updates to the entry in dynamodb
+    """Add timestamps to the status and apply the updates to the entry in dynamodb.
 
     Args:
         site (str): site abbreviation, used as partition key in dynamodb table
@@ -98,11 +99,13 @@ def post_status(site, status_type, new_status):
 
 
 def get_status(site, status_type):
+    """Retrieves status from table for a given site and status type."""
     table_response = status_table.get_item(Key={"site": site, "statusType": status_type})
     return table_response.get("Item", {})
 
 
 def get_combined_site_status(site):
+    """Retrieves and combines status of all status types (weather, enclosure, device) for a given site."""
     all_status_entries = status_table.scan(
         FilterExpression = Attr('site').eq(site)
     )
@@ -142,7 +145,7 @@ def post_status_http(event, context):
     actual_keys = body.keys()
     for key in required_keys:
         if key not in actual_keys:
-            print(f"Error: missing requied key {key}")
+            print(f"Error: missing required key {key}")
             return {
                 "statusCode": 400,
                 "body": f"Error: missing required key {key}",
@@ -157,6 +160,7 @@ def post_status_http(event, context):
 
 
 def get_site_status(event, context):
+    """Return the status for the requested site and status type."""
     site = event['pathParameters']['site']
     status_type = event['pathParameters']['status_type']
     status = get_status(site, status_type)
@@ -164,7 +168,7 @@ def get_site_status(event, context):
 
 
 def get_site_complete_status(event, context):
-    """ Return the full status for the requested site """
+    """Return the full status for the requested site."""
     if event['pathParameters']['site'] == '':
         return _get_response(400, 'Site not provided.')
     site = event['pathParameters']['site']
@@ -173,6 +177,7 @@ def get_site_complete_status(event, context):
 
 
 def clear_all_site_status(event, context):
+    "Remove all status entries for the requested site."
     site = event['pathParameters']['site']
     all_status_entries = status_table.scan(
         FilterExpression = Attr('site').eq(site)
@@ -188,6 +193,13 @@ def clear_all_site_status(event, context):
 
 
 def get_all_site_open_status(event, context):
+    """Creates a dictionary of sites with true/false value describing weather ok to open.
+    
+    Returns:
+        all_open_status (dict): dictionary of sites with "wx_ok" set as a true/false value 
+        describing weather ok to open, and with "status_age_s" of all status types set to
+        the difference between the status time and current time in seconds."""
+        
     all_open_status = {}
     trues = ['Yes', 'yes', 'True', 'true', True]
     falses = ['No', 'no', 'False', 'false', False]
