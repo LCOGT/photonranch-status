@@ -106,9 +106,9 @@ An additional test endpoint is located at `https://status.photonranch.org/test`.
     - Description: Send a new status
     - Authorization required: No (will be added later)
     - Path Params:
-        - "site": site code that status is being sent from
+        - "site": (str) site code that status is being sent from
     - Request body: 
-        - "statusType": string, either "weather", "enclosure", or "device"
+        - "statusType": (str), either "weather", "enclosure", or "device"
         - "status": JSON body as specified in syntax above
     - Responses: 
         - 200: Successfully posted status
@@ -138,7 +138,7 @@ An additional test endpoint is located at `https://status.photonranch.org/test`.
     - Description: Retrieve complete status from specified site
     - Authorization required: No
     - Path Params:
-      - "site": site code that status is being retrieved from
+      - "site": (str) site code that status is being retrieved from
     - Responses: 
       - 200: Successful
       - 400: Site not provided in path param
@@ -155,7 +155,7 @@ An additional test endpoint is located at `https://status.photonranch.org/test`.
     - Description: Removes all status entries from specified site
     - Authorization required: No
     - Path Params:
-      - "site": site code that status is being retrieved from 
+      - "site": (str) site code that status is being retrieved from 
     - Responses: 
       - 200: Successful removal of status entries
     - Example request:
@@ -170,8 +170,8 @@ An additional test endpoint is located at `https://status.photonranch.org/test`.
     - Description: Retrieve specified status type from specified site
     - Authorization required: No
     - Path Params:
-      - "site": site code that status is being retrieved from
-      - "status_type": type of either "weather", "enclosure", or "device"
+      - "site": (str) site code that status is being retrieved from
+      - "status_type": (str) type of either "weather", "enclosure", or "device"
     - Responses: 
       - 200: Successful
     - Example request:  
@@ -201,8 +201,8 @@ An additional test endpoint is located at `https://status.photonranch.org/test`.
     - Description: Send a new phase status which appears in the site status footer below the user status
     - Authorization required: no (will be added later)
     - Request body: 
-        - "message": string, text to be displayed as phase status
-        - "site": string, sitecode (eg. "sro")
+        - "message": (str) text to be displayed as phase status
+        - "site": (str) sitecode (eg. "sro")
     - Responses: 
       - 200: Successfully posted phase status
       - 400: Missing arguments in the POST body

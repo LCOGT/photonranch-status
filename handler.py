@@ -51,11 +51,11 @@ def stream_handler(event, context):
 #=========================================#
 
 def post_status(site, status_type, new_status):
-    """Add timestamps to the status and apply the updates to the entry in dynamodb.
+    """Add timestamps to the status and apply the updates to the entry in DynamoDB.
 
     Args:
-        site (str): site abbreviation, used as partition key in dynamodb table
-        status_type (str): weather | enclosure | device, used as the sort key in dynamodb
+        site (str): site abbreviation, used as partition key in DynamoDB table
+        status_type (str): weather | enclosure | device, used as the sort key in DynamoDB
         new_status (dict): this is the dict of new status values to apply. It should have the format:
         
         new_status = {
@@ -130,8 +130,7 @@ def get_combined_site_status(site):
 #=========================================#
 
 def post_status_http(event, context):
-    ''' 
-    Update a site's status with a regular http request.
+    '''Updates a site's status with a regular http request.
     Example request body: {'statusType': 'devicesStatus', 'status': {...}}
     '''
     body = _get_body(event)
@@ -177,7 +176,7 @@ def get_site_complete_status(event, context):
 
 
 def clear_all_site_status(event, context):
-    "Remove all status entries for the requested site."
+    """Remove all status entries for the requested site."""
     site = event['pathParameters']['site']
     all_status_entries = status_table.scan(
         FilterExpression = Attr('site').eq(site)

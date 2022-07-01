@@ -113,7 +113,7 @@ def add_item_timestamps(status_dict, timestamp):
     
 
 def merge_dicts(main_dict, updates_dict):
-    """ Recursively merges updates_dict into main_dict"""
+    """Recursively merges updates_dict into main_dict."""
     if not isinstance(main_dict, dict) or not isinstance(updates_dict, dict):
         return updates_dict
     for k in updates_dict:
