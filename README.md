@@ -19,14 +19,6 @@ of an observation instead of granular detail.
 
 ![Expanded status view](images/expanded_status.png)
 
-## Architecture
-
-An architecture diagram, when created, will go here.
-
-## Dependencies
-
-Dependencies will be listed here.
-
 ## Local Development
 
 Clone the repository to your local machine:
@@ -61,10 +53,6 @@ To deploy, run:
 ```
 serverless deploy --stage {stage}
 ```
-
-### Testing
-
-Instructions to manually run tests will be detailed here.
 
 ## Status Syntax
 
