@@ -69,8 +69,16 @@ def send_to_datastream(site, data, topic="sitestatus"):
     
 
 def add_item_timestamps(status_dict, timestamp):
-    """ Convert all status values into dicts that include the value and a timestamp to denote age. 
+    """Convert all status values into dicts that include the value and a timestamp to denote age. 
     
+    Args:
+        status_dict (dict): a dictionary with a key-value pair to describe the updated status.
+        timestamp (int): unix timestamp in seconds
+
+    Returns:
+        a dictionary containing a subdictionary that includes a value and a timestamp to describe 
+        the updated status
+
     For example, if the original status dict is
     status = {
         "mount": {
@@ -105,7 +113,7 @@ def add_item_timestamps(status_dict, timestamp):
     
 
 def merge_dicts(main_dict, updates_dict):
-    """ Recursively merges updates_dict into main_dict"""
+    """Recursively merges updates_dict into main_dict."""
     if not isinstance(main_dict, dict) or not isinstance(updates_dict, dict):
         return updates_dict
     for k in updates_dict:
