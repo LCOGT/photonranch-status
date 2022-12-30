@@ -197,13 +197,25 @@ def get_all_site_open_status(event, context):
     Returns:
         all_open_status (dict): dictionary of sites with "wx_ok" set as a true/false value 
         describing weather ok to open, and with "status_age_s" of all status types set to
-        the difference between the status time and current time in seconds."""
+        the difference between the status time and current time in seconds.
+
+        Output should have a dict with sites as keys and values similar to
+        {
+            'device': {'status_age_s': 250096},
+            'enclosure': {'status_age_s': 250062},
+            'weather': {'status_age_s': 250064},
+            'wx_ok': True
+        }
+        """
         
     all_open_status = {}
-    trues = ['Yes', 'yes', 'True', 'true', True]
-    falses = ['No', 'no', 'False', 'false', False]
+    possible_trues = ['Yes', 'yes', 'True', 'true', True]
+    possible_falses = ['No', 'no', 'False', 'false', False]
     time_now = time.time()
+
+    # Get all entries in the dynamodb status table
     response = status_table.scan()
+
     for status_entry in response['Items']:
 
         site = status_entry['site'] 
@@ -218,26 +230,40 @@ def get_all_site_open_status(event, context):
            "status_age_s": int(time_now - (float(server_timestamp_ms) / 1000))
         }
 
+        # Try to add the wx_ok key, but skip if it's not available.
         if status_entry['statusType'] == 'weather' and 'observing_conditions' in status_entry['status']:
-            weather_key = list(status_entry['status']['observing_conditions'])[0]
-            weather_status = status_entry['status']['observing_conditions'][weather_key]
-            wx_ok = weather_status.get('wx_ok', {'val': False}).get('val') in trues
-            all_open_status[site]['wx_ok'] = wx_ok
+            try:
+                # Get the name of the weather status device (assume there is just one). This is needed in the line
+                # below to get the weather values from this device. 
+                weather_key = list(status_entry['status']['observing_conditions'])[0] 
+                weather_status = status_entry['status']['observing_conditions'][weather_key]
+
+                # Convert the wx_ok value from a string to a boolean, accounting for a variety of possible truthy values
+                # as specified by Wayne.
+                wx_ok = weather_status['wx_ok']['val'] in possible_trues
+
+                # If no problems till now, add the wx_ok key to our response payload.
+                all_open_status[site]['wx_ok'] = wx_ok
+            except: 
+                # One possible reason for failure: a site reports an empty status value under "observing_conditions"
+                print(f"Warning: failed to get wx_ok status for site {site}")
 
     return _get_response(200, all_open_status)
 
     
 if __name__=="__main__":
-    print('hello')
+    os.setenv('STATUS_TABLE', 'photonranch-status-dev')
     table = dynamodb.Table('photonranch-status-dev')
     stat = table.get_item(Key={"site": "tst", "statusType": "weather"})
     print(stat)
-    upload = stat['Item']
-    print(upload['status'].keys())
 
+    # view output of allopenstatus
     from pprint import pprint
     status_table = table
-    pprint(get_all_site_open_status({},{}))
+    allopenstatus = json.loads(get_all_site_open_status({},{}).get('body'))
+    for site in allopenstatus:
+        print(site)
+        pprint(allopenstatus[site])
 
     #upload['status'].pop('enclosure')
     #print(upload['status'].keys())
