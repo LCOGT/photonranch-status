@@ -3,7 +3,7 @@
   "description": "",
   "version": "0.1.0",
   "dependencies": {
-    "serverless": "^2.72.2",
+    "serverless": "^3.27.0",
     "serverless-domain-manager": "^3.3.2",
     "serverless-dynamodb-pitr": "^0.1.1"
   },
