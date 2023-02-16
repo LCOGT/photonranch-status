@@ -1,13 +1,11 @@
 {
   "name": "photonranch-status",
-  "description": "",
-  "version": "0.1.0",
+  "description": "Infrastructure that handles realtime status between observatories and frontend",
+  "version": "1.0.0",
   "dependencies": {
-    "serverless": "^2.72.2",
-    "serverless-domain-manager": "^3.3.2",
+    "serverless": "^3.27.0",
+    "serverless-domain-manager": "^6.4.2",
+    "serverless-python-requirements": "^6.0.0",
     "serverless-dynamodb-pitr": "^0.1.1"
-  },
-  "devDependencies": {
-    "serverless-python-requirements": "^5.1.0"
   }
 }

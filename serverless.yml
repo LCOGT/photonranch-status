@@ -4,9 +4,9 @@ app: photonranch
 service: photonranch-status
 
 package:
-  exclude:
-    - venv/**
-    - node_modules/**
+  patterns:
+    - '!venv/**'
+    - '!node_modules/**'
 
 plugins:
   - serverless-python-requirements
@@ -14,65 +14,60 @@ plugins:
   - serverless-domain-manager
 
 custom:
-  statusConnectionsTable: photonranch-status-connections
-  statusTable: photonranch-status
+
+  statusTable: photonranch-status-${self:provider.stage}
   pitr: # enable point-in-time recovery
-    - tableName: ${self:custom.statusTable}-${self:provider.stage}
+    - tableName: ${self:custom.statusTable}
       enabled: true
 
   # This is the 'variable' for the customDomain.basePath value, based on the stage.
-  # Run as `sls deploy --stage <stage_name>`
   stage: 
-    dev: status
+    prod: status
+    dev: dev
     test: test
 
-  # Make sure to first run 'serverless create_domain'
   customDomain:
     domainName: 'status.photonranch.org'
     basePath: ${self:custom.stage.${self:provider.stage}}
     stage: ${self:provider.stage}
     createRoute53Record: true
-
+    createRoute53IPv6Record: true
+    autoDomain: true
 
 provider:
   name: aws
-  stage: ${opt:stage, "test"}
+  stage: ${opt:stage}
   runtime: python3.7
   region: us-east-1
-  websocketsApiName: websockets-photonranch-status
-  websocketsApiRouteSelectionExpression: $request.body.action
   environment: 
     STATUS_TABLE: 
       Ref: statusTable
     AUTH0_CLIENT_ID: ${file(./secrets.json):AUTH0_CLIENT_ID}
     AUTH0_CLIENT_PUBLIC_KEY: ${file(./public_key)}
-  iamRoleStatements:
-    - Effect: Allow 
-      Action: 
-        - dynamodb:PutItem
-        - dynamodb:GetItem
-        - dynamodb:UpdateItem
-        - dynamodb:DeleteItem
-        - dynamodb:Scan
-        - dynamodb:Query
-        - dynamodb:DescribeStream
-        - dynamodb:GetRecords
-        - dynamodb:GetShardIterator
-        - dynamodb:ListStreams
-      Resource:
-        # needs to work for connecitons table and status table. 
-        # can I include two resources here? Generic connection for now.
-        #- "arn:aws:dynamodb:${self:provider.region}:*:table/${self:custom.statusTable}*"
-        #- "arn:aws:dynamodb:${self:provider.region}:*:table/${self:custom.statusConnectionsTable}*"
-        - "arn:aws:dynamodb:${self:provider.region}:*:*"
+  iam:
+    role:
+      statements:
+        - Effect: Allow 
+          Action: 
+            - dynamodb:PutItem
+            - dynamodb:GetItem
+            - dynamodb:UpdateItem
+            - dynamodb:DeleteItem
+            - dynamodb:Scan
+            - dynamodb:Query
+            - dynamodb:DescribeStream
+            - dynamodb:GetRecords
+            - dynamodb:GetShardIterator
+            - dynamodb:ListStreams
+          Resource:
+            - "arn:aws:dynamodb:${self:provider.region}:*:table/${self:custom.statusTable}*"
 
-    - Effect: Allow
-      Action:
-        - sqs:SendMessage
-        - sqs:GetQueueUrl
-      Resource:
-        #- Fn::GetAtt: [ StatusDeliveryQueue, Arn ]
-        - "arn:aws:sqs:${self:provider.region}:*:*"
+        - Effect: Allow
+          Action:
+            - sqs:SendMessage
+            - sqs:GetQueueUrl
+          Resource:
+            - "arn:aws:sqs:${self:provider.region}:*:*"
 
 resources: 
   Resources:
@@ -122,7 +117,7 @@ resources:
     statusTable: 
       Type: AWS::DynamoDB::Table
       Properties:
-        TableName: ${self:custom.statusTable}-${self:provider.stage}
+        TableName: ${self:custom.statusTable}
         AttributeDefinitions:
           - AttributeName: site 
             AttributeType: S
