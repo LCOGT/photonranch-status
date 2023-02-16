@@ -39,20 +39,8 @@ configuring with your own AWS credentials.
 
 ### Deployment
 
-This project currently has two stages, `dev` (currently treated as the production stage) and `test`.
-For manual deployment on your local machine, you'll need to fill out the
-`public_key` and `secrets.json` with the required information, and install packages:
-
-```bash
-$ npm install
-$ serverless plugin install --name serverless-python-requirements
-```
-
-To deploy, run:
-
-```bash
-$ serverless deploy --stage {stage}
-```
+This project currently has two deployed stages, `prod` and `dev`. Changes to either branch will automatically
+deploy to the respective stage via github actions.
 
 ## Status Syntax
 
