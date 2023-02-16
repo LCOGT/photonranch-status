@@ -135,7 +135,6 @@ resources:
 functions:
   authorizerFunc: 
     handler: authorizer.auth
-    cors: true
   postStatus:
     handler: handler.post_status_http
     events:
