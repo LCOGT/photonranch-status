@@ -14,7 +14,6 @@ plugins:
   - serverless-domain-manager
 
 custom:
-  statusConnectionsTable: photonranch-status-connections
   statusTable: photonranch-status-${self:provider.stage}
   phaseStatusTable: phase-status-${self:provider.stage}
   pitr: # enable point-in-time recovery
@@ -64,6 +63,7 @@ provider:
             - dynamodb:ListStreams
           Resource:
             - "arn:aws:dynamodb:${self:provider.region}:*:table/${self:custom.statusTable}*"
+            - "arn:aws:dynamodb:${self:provider.region}:*:table/${self:custom.phaseStatusTable}*"
 
         - Effect: Allow
           Action:
@@ -167,17 +167,8 @@ functions:
           #authorizer:
             #name: authorizerFunc
             #resultTtlInSeconds: 0 # Don't cache the policy or other tasks will fail!
-          cors:
-            origin: '*'
-            headers:
-              - Content-Type
-              - X-Amz-Date
-              - Authorization
-              - X-Api-Key
-              - X-Amz-Security-Token
-              - X-Amz-User-Agent
-              - Access-Control-Allow-Origin
-              - Access-Control-Allow-Credentials
+          cors: true
+
   getSiteCompleteStatus:
     handler: handler.get_site_complete_status
     events:
@@ -200,6 +191,7 @@ functions:
       - http: 
           path: /{site}/{status_type}
           method: get
+          cors: true
 
   getAllOpenStatus:
     handler: handler.get_all_site_open_status
@@ -207,17 +199,7 @@ functions:
       - http:
           path: /allopenstatus
           method: get
-          cors:
-            origin: '*'
-            headers:
-              - Content-Type
-              - X-Amz-Date
-              - Authorization
-              - X-Api-Key
-              - X-Amz-Security-Token
-              - X-Amz-User-Agent
-              - Access-Control-Allow-Origin
-              - Access-Control-Allow-Credentials
+          cors: true
 
   newPhaseStatus:
     handler: phase_status.post_phase_status
@@ -226,6 +208,7 @@ functions:
           path: /phase_status
           method: post
           cors: true
+
   getPhaseStatus:
     handler: phase_status.get_phase_status
     events:
