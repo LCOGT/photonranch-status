@@ -17,7 +17,7 @@
 # Define the directory to save the seed data
 SEED_DIR="$( dirname -- "$0";)/sample_data/"
 
-STAGE=${1:-dev}
+STAGE=${1:-prod}
 echo "Using stage $STAGE"
 STATUS_TABLE="photonranch-status-$STAGE"
 PHASE_STATUS_TABLE="phase-status-$STAGE"
