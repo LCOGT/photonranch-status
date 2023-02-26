@@ -19,6 +19,8 @@ var/
 
 # Serverless directories
 .serverless
+.dynamodb
+sample_data
 
 # Other
 secrets.json
