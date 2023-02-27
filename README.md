@@ -61,7 +61,7 @@ a browser window, or you can set the `SERVERLESS_ACCESS_KEY` environment variabl
 access key.
 
 In order to run dynamodb locally, you'll need to make sure java is installed in your system.
-You can verify by running `$ java -v` which should return the version if one is installed.
+You can verify by running `$ java -version` which should return the version if one is installed.
 Once java is installed, we can install the local dynamodb:
 
 ``` bash
@@ -76,6 +76,7 @@ data as specified in our `serverless.yml` file, under `custom.dynamodb.seed.doma
 To intialize with empty data, create two empty json files:
 
 ``` bash
+$ mkdir sample_data
 $ touch sample_data/statusTable.json
 $ touch sample_data/phaseStatusTable.json
 ```
@@ -88,7 +89,7 @@ $ source copy_dynamodb_data.sh
 ```
 
 This will automatically create the files with sample data used to seed the local tables. You can specify which tables
-you want to be copied by adding the stage name to this script, e.g. `$ source copy_dynamodb_data dev`
+you want to be copied by adding the stage name to this script, e.g. `$ source copy_dynamodb_data.sh dev`
 would copy data from the tables running in dev rather than prod.
 
 Finally, we're ready to run the local API:
@@ -97,7 +98,9 @@ Finally, we're ready to run the local API:
 $ serverless offline start --reloadHandler
 ```
 
-The api should now be accessible at `http://localhost:3000/`
+The api should now be accessible at `http://localhost:3000/`.
+The base url isn't a valid route, but you can try visiting `http://localhost:3000/dev/allopenstatus` to
+to see it in action.
 
 The `--reloadhandler` flag enables hot reloading so that any changes you save (not including changes to `serverless.yml`)
 will be automatically applied without needing to stop and restart the local server.
