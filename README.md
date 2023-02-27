@@ -76,16 +76,16 @@ data as specified in our `serverless.yml` file, under `custom.dynamodb.seed.doma
 To intialize with empty data, create two empty json files:
 
 ``` bash
-$ mkdir sample_data
 $ touch sample_data/statusTable.json
 $ touch sample_data/phaseStatusTable.json
 ```
 
 If you want the tables to contain realistic data, we can copy the contents of the production tables running in aws
-the local tables by running the bash script:
+the local tables by running the following python script.
+You'll need credentials with dynamodb read permissions on your local machine for this to work.
 
 ``` bash
-$ source copy_dynamodb_data.sh
+$ python sample_data/copy_dynamodb_data.py
 ```
 
 This will automatically create the files with sample data used to seed the local tables. You can specify which tables

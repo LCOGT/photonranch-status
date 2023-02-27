@@ -20,7 +20,8 @@ var/
 # Serverless directories
 .serverless
 .dynamodb
-sample_data
+sample_data/*
+!sample_data/copy_dynamodb_data.py
 
 # Other
 secrets.json

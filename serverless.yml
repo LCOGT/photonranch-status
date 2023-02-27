@@ -50,9 +50,9 @@ custom:
       domain:
         sources:
           - table: ${self:custom.statusTable}
-            rawsources: [./sample_data/statusTable.json]
+            sources: [./sample_data/statusTable.json]
           - table: ${self:custom.phaseStatusTable}
-            rawsources: [./sample_data/phaseStatusTable.json]
+            sources: [./sample_data/phaseStatusTable.json]
 
 
 provider:
