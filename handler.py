@@ -256,39 +256,3 @@ def get_all_site_open_status(event, context):
                 print(f"Warning: failed to get wx_ok status for site {site}")
 
     return _get_response(200, all_open_status)
-
-    
-if __name__=="__main__":
-    #os.setenv('STATUS_TABLE', 'photonranch-status-dev')
-    #table = dynamodb.Table('photonranch-status-dev')
-    #stat = table.get_item(Key={"site": "mrc", "statusType": "weather"})
-    #print(stat)
-
-    resource = boto3.resource('dynamodb', endpoint_url='http://localhost:9000')
-    table = resource.Table(name='photonranch-status-dev')
-    weather = table.get_item(Key={"site": "mrc", "statusType": "weather"})
-    print(weather)
-
-
-    # view output of allopenstatus
-    #from pprint import pprint
-    #status_table = table
-    #allopenstatus = json.loads(get_all_site_open_status({},{}).get('body'))
-    #for site in allopenstatus:
-        #print(site)
-        #pprint(allopenstatus[site])
-
-    #upload['status'].pop('enclosure')
-    #print(upload['status'].keys())
-    #print(table.put_item(Item=upload))
-
-    #table.delete_item(Key={"site": "test", "statusType": "deviceStatus"})
-    #site = 'tst'
-    #all_status_entries = table.scan(
-        #FilterExpression = Attr('site').eq(site)
-    #)
-    #for item in all_status_entries['Items']:
-        #table.delete_item(Key={
-            #"site": item['site'],
-            #"statusType": item['statusType']
-        #})
