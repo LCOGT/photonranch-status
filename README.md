@@ -21,14 +21,7 @@ of an observation instead of granular detail.
 
 ## Local Development
 
-Clone the repository to your local machine:
-
-``` bash
-$ git clone https://github.com/LCOGT/photonranch-status.git
-$ cd photonranch-status
-```
-
-### Requirements
+### Basic Requirements
 
 You will need the [Serverless Framework](https://www.serverless.com/framework/docs/getting-started)
 installed locally for development. For manual deployment to AWS as well as for updating dependencies,
@@ -37,10 +30,87 @@ you will need to install [Node](https://nodejs.org/en/),
 and [AWS CLI](https://docs.aws.amazon.com/cli/latest/userguide/getting-started-install.html),
 configuring with your own AWS credentials.
 
-### Deployment
+Clone the repository to your local machine:
 
-This project currently has two deployed stages, `prod` and `dev`. Changes to either branch will automatically
-deploy to the respective stage via github actions.
+``` bash
+$ git clone https://github.com/LCOGT/photonranch-status.git
+$ cd photonranch-status
+```
+
+From the root of this project directory, install serverless environment dependencies with
+
+``` bash
+$ npm install
+```
+
+Create and activate a python virtual environment (using python 3.7 or later):
+
+``` bash
+$ python -m venv venv
+$ source venv/bin/activate
+$ pip install --upgrade pip
+$ pip install -r requirements.txt
+```
+
+### Running Locally
+
+Having completed the above tasks, we can now continue with the steps needed to run the API locally.
+
+First, make sure you have serverless credentials configured. You can login with `$ serverless login` which will open
+a browser window, or you can set the `SERVERLESS_ACCESS_KEY` environment variable with a serverless
+access key.
+
+In order to run dynamodb locally, you'll need to make sure java is installed in your system.
+You can verify by running `$ java -version` which should return the version if one is installed.
+Once java is installed, we can install the local dynamodb:
+
+``` bash
+$ serverless dynamodb install 
+```
+
+This creates the `.dynamodb/` folder in the main project directory, used whenever the project is run locally.
+Note that this command only needs to be run if `.dynamodb/` doesn't already exist.
+
+The last step before running is getting data to seed the local dynamodb tables. To do this, we need seed
+data as specified in our `serverless.yml` file, under `custom.dynamodb.seed.domain.sources.rawsources`.
+To intialize with empty data, create two empty json files:
+
+``` bash
+$ touch sample_data/statusTable.json
+$ touch sample_data/phaseStatusTable.json
+```
+
+If you want the tables to contain realistic data, we can copy the contents of the production tables running in aws
+the local tables by running the following python script.
+You'll need credentials with dynamodb read permissions on your local machine for this to work.
+
+``` bash
+$ python sample_data/copy_dynamodb_data.py
+```
+
+This will automatically create the files with sample data used to seed the local tables. You can specify which tables
+you want to be copied by adding the stage name to this script, e.g. `$ source copy_dynamodb_data.sh dev`
+would copy data from the tables running in dev rather than prod.
+
+Finally, we're ready to run the local API:
+
+``` bash
+$ serverless offline start --reloadHandler
+```
+
+The api should now be accessible at `http://localhost:3000/`.
+The base url isn't a valid route, but you can try visiting `http://localhost:3000/dev/allopenstatus` to
+to see it in action.
+
+The `--reloadhandler` flag enables hot reloading so that any changes you save (not including changes to `serverless.yml`)
+will be automatically applied without needing to stop and restart the local server.
+
+Please note that not all functionality has been verified to work offline yet.
+
+## Deployment
+
+This project currently has two deployed stages, `prod` and `dev` and will automatically
+deploy to the respective stage via github actions whenever changes are added to the `main` or `dev` branches.
 
 ## Status Syntax
 

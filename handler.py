@@ -20,8 +20,15 @@ dynamodb = boto3.resource('dynamodb')
 
 try:
     status_table = dynamodb.Table(os.getenv('STATUS_TABLE'))
+    status_table = dynamodb.Table()
 except Exception as e:
     print(e)
+
+# Use local dynamodb if running with serverless-offline
+if os.getenv('IS_OFFLINE'):
+    print(os.getenv('IS_OFFLINE'))
+    resource = boto3.resource('dynamodb', endpoint_url='http://localhost:9000')
+    status_table = resource.Table(name='photonranch-status-dev')
 
 
 def stream_handler(event, context):
@@ -249,33 +256,3 @@ def get_all_site_open_status(event, context):
                 print(f"Warning: failed to get wx_ok status for site {site}")
 
     return _get_response(200, all_open_status)
-
-    
-if __name__=="__main__":
-    os.setenv('STATUS_TABLE', 'photonranch-status-dev')
-    table = dynamodb.Table('photonranch-status-dev')
-    stat = table.get_item(Key={"site": "tst", "statusType": "weather"})
-    print(stat)
-
-    # view output of allopenstatus
-    from pprint import pprint
-    status_table = table
-    allopenstatus = json.loads(get_all_site_open_status({},{}).get('body'))
-    for site in allopenstatus:
-        print(site)
-        pprint(allopenstatus[site])
-
-    #upload['status'].pop('enclosure')
-    #print(upload['status'].keys())
-    #print(table.put_item(Item=upload))
-
-    #table.delete_item(Key={"site": "test", "statusType": "deviceStatus"})
-    #site = 'tst'
-    #all_status_entries = table.scan(
-        #FilterExpression = Attr('site').eq(site)
-    #)
-    #for item in all_status_entries['Items']:
-        #table.delete_item(Key={
-            #"site": item['site'],
-            #"statusType": item['statusType']
-        #})

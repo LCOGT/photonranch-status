@@ -11,6 +11,12 @@ try:
 except Exception as e:
     print(e)
 
+# Use local dynamodb if running with serverless-offline
+if os.getenv('IS_OFFLINE'):
+    print(os.getenv('IS_OFFLINE'))
+    resource = boto3.resource('dynamodb', endpoint_url='http://localhost:9000')
+    status_table = resource.Table(name='photonranch-status-dev')
+
 def post_phase_status(event, context):
     body = _get_body(event)
 
