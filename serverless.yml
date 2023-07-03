@@ -34,6 +34,10 @@ custom:
     createRoute53IPv6Record: true
     autoDomain: true
 
+  # Disable cloudwatch logs because they are expensive at this scale
+  enterprise:
+    collectLambdaLogs: false
+
 provider:
   name: aws
   stage: ${opt:stage, "dev"}
