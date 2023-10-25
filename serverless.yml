@@ -13,7 +13,7 @@ plugins:
   - serverless-dynamodb-pitr
   - serverless-domain-manager
   - serverless-offline
-  - serverless-dynamodb-local
+  - serverless-dynamodb
 
 custom:
   statusTable: photonranch-status-${self:provider.stage}
