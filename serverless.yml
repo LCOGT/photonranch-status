@@ -12,8 +12,8 @@ plugins:
   - serverless-python-requirements
   - serverless-dynamodb-pitr
   - serverless-domain-manager
-  - serverless-offline
   - serverless-dynamodb
+  - serverless-offline
 
 custom:
   statusTable: photonranch-status-${self:provider.stage}
