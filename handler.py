@@ -1,5 +1,6 @@
 import json, os, boto3, decimal, time
 from boto3.dynamodb.conditions import  Attr
+from datetime import datetime, timedelta
 
 from helpers import _get_response 
 from helpers import _get_body 
@@ -104,6 +105,45 @@ def post_status(site, status_type, new_status):
     table_response = status_table.put_item(Item=dynamodb_entry)
     return table_response
 
+def post_forecast_status(site, status_type, new_status):
+    """Add timestamps to the forecast status, combines it with forecast data already in dynamodb up to a data period
+
+    Args:
+        site (str): site abbreviation, used as partition key in DynamoDB table
+        status_type (str): forecast
+        new_status (dict): this is the dict of new status values to apply
+
+    Returns:
+        dict: dynamodb put_item response
+    """
+    # Add timestamps to the status items
+    server_timestamp_ms = int(time.time() * 1000)
+    existing_status = get_status(site, status_type).get("status", {})
+
+    merged_forecast = existing_status.get("forecast", []) + new_status.get("forecast", [])
+
+    # Variable for how far in the past we save forecast data
+    forecast_data_period = timedelta(hours=96)
+    
+    # Filter out report objects that are not older than the data retention period
+    filtered_merged_forecast = [report for report in merged_forecast if (datetime.utcnow().astimezone() - datetime.fromisoformat(report.get("utc_long_form", ""))) <= forecast_data_period]
+
+    merged_status = existing_status
+    merged_status["forecast"] = filtered_merged_forecast
+
+    entry = {
+        "site": site,
+        "statusType": status_type,
+        "status": merged_status,
+        "server_timestamp_ms": server_timestamp_ms,
+    }
+    dynamodb_entry = _empty_strings_to_dash(entry)
+
+    # Convert floats into decimals for dynamodb
+    dynamodb_entry = json.loads(json.dumps(dynamodb_entry, cls=DecimalEncoder), parse_float=decimal.Decimal)
+
+    table_response = status_table.put_item(Item=dynamodb_entry)
+    return table_response
 
 def get_status(site, status_type):
     """Retrieves status from table for a given site and status type."""
@@ -161,7 +201,12 @@ def post_status_http(event, context):
                 },
             }
     
-    response = post_status(site, body['statusType'], body['status'])
+    # forecast statusType being handled uniquely
+    if body['statusType'] == 'forecast':
+        response = post_forecast_status(site, body['statusType'], body['status'])
+    else:
+        response = post_status(site, body['statusType'], body['status'])
+
     return _get_response(200, response)
 
 
