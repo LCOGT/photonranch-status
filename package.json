@@ -5,7 +5,12 @@
   "dependencies": {
     "serverless": "^3.27.0",
     "serverless-domain-manager": "^6.4.2",
-    "serverless-python-requirements": "^6.0.0",
-    "serverless-dynamodb-pitr": "^0.1.1"
+    "serverless-dynamodb-pitr": "^0.1.1",
+    "serverless-python-requirements": "^6.0.0"
+  },
+  "devDependencies": {
+    "aws-dynamodb-local": "^0.0.11",
+    "serverless-dynamodb": "^0.2.47",
+    "serverless-offline": "^12.0.4"
   }
 }

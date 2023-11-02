@@ -12,6 +12,8 @@ plugins:
   - serverless-python-requirements
   - serverless-dynamodb-pitr
   - serverless-domain-manager
+  - serverless-dynamodb
+  - serverless-offline
 
 custom:
   statusTable: photonranch-status-${self:provider.stage}
@@ -33,6 +35,25 @@ custom:
     createRoute53Record: true
     createRoute53IPv6Record: true
     autoDomain: true
+
+  # This is for the local dynamodb instance
+  dynamodb:
+    stages: 
+      - dev
+    start:
+      port: 9000
+      inMemory: true
+      migrate: true
+      seed: true
+
+    seed:
+      domain:
+        sources:
+          - table: ${self:custom.statusTable}
+            sources: [./sample_data/statusTable.json]
+          - table: ${self:custom.phaseStatusTable}
+            sources: [./sample_data/phaseStatusTable.json]
+
 
   # Disable cloudwatch logs because they are expensive at this scale
   enterprise:
