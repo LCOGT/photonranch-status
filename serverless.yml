@@ -55,6 +55,10 @@ custom:
             sources: [./sample_data/phaseStatusTable.json]
 
 
+  # Disable cloudwatch logs because they are expensive at this scale
+  enterprise:
+    collectLambdaLogs: false
+
 provider:
   name: aws
   stage: ${opt:stage, "dev"}
