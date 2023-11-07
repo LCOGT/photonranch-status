@@ -27,7 +27,7 @@ except Exception as e:
 
 # Use local dynamodb if running with serverless-offline
 if os.getenv('IS_OFFLINE'):
-    print(os.getenv('IS_OFFLINE'))
+    print("In offline development mode: " + os.getenv('IS_OFFLINE'))
     resource = boto3.resource('dynamodb', endpoint_url='http://localhost:9000')
     status_table = resource.Table(name='photonranch-status-dev')
 
@@ -121,15 +121,32 @@ def post_forecast_status(site, status_type, new_status):
     existing_status = get_status(site, status_type).get("status", {})
 
     merged_forecast = existing_status.get("forecast", []) + new_status.get("forecast", [])
+    print("Existing Forecast Length:", len(existing_status.get("forecast", [])))
+    print("New Forecast Length:", len(new_status.get("forecast", [])))
+    print("Merged Forecasts Length:", len(merged_forecast))
 
     # Variable for how far in the past we save forecast data
     forecast_data_period = timedelta(hours=96)
     
-    # Filter out report objects that are not older than the data retention period
+    # Filter out report objects that are older than the data retention period
     filtered_merged_forecast = [report for report in merged_forecast if (datetime.utcnow().astimezone() - datetime.fromisoformat(report.get("utc_long_form", ""))) <= forecast_data_period]
 
+    print("Post Filter time length: ", len(filtered_merged_forecast))
+    print(', '.join(report.get("utc_long_form", "missing") for report in filtered_merged_forecast))
+
+    # Removing report duplicates based on utc time
+    seen_time_reports = set()
+    unique_filtered_merged_forecast = []
+    for report in filtered_merged_forecast:
+        if report.get("utc_long_form" , "") not in seen_time_reports:
+            unique_filtered_merged_forecast.append(report)
+            seen_time_reports.add(report.get("utc_long_form" , ""))
+
+    print("Post Duplicate removal length:", len(unique_filtered_merged_forecast))
+    print(', '.join(report.get("utc_long_form", "missing") for report in filtered_merged_forecast))
+
     merged_status = existing_status
-    merged_status["forecast"] = filtered_merged_forecast
+    merged_status["forecast"] = unique_filtered_merged_forecast
 
     entry = {
         "site": site,
@@ -148,6 +165,9 @@ def post_forecast_status(site, status_type, new_status):
 def get_status(site, status_type):
     """Retrieves status from table for a given site and status type."""
     table_response = status_table.get_item(Key={"site": site, "statusType": status_type})
+    if(status_type == 'forecast'):
+        print("get_status() forecast response length", len(table_response.get("Item" , {}).get("status").get("forecast")))
+        print(', '.join(report.get("utc_long_form") for report in table_response.get("Item" , {}).get("status").get("forecast")))
     return table_response.get("Item", {})
 
 
